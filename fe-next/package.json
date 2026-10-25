@@ -1,0 +1,28 @@
+{
+  "name": "fe-next",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --hostname 0.0.0.0 --port 3000",
+    "dev:clean": "powershell -ExecutionPolicy Bypass -NoProfile -Command \"$p = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue; if ($p) { foreach ($item in $p) { if ($item.State -eq 'Listen' -or $item.State -eq 'Established') { Stop-Process -Id $item.OwningProcess -Force -ErrorAction SilentlyContinue } } }; Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue; next dev --hostname 0.0.0.0 --port 3000\"",
+    "build": "next build",
+    "start": "next start --hostname 0.0.0.0 --port 3000",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "14.2.15",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "lucide-react": "^0.451.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.12",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.41",
+    "tailwindcss": "^3.4.10",
+    "typescript": "^5.5.4",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "14.2.15"
+  }
+}
