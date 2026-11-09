@@ -52,7 +52,7 @@ const seedUsers: AppUser[] = [
   },
   {
     id: "adm-001",
-    fullName: "Admin HCMUTE",
+    fullName: "Admin Phan Gia Phước",
     email: "admin@hcmute.edu.vn",
     password: "123456",
     role: "admin",
