@@ -3,97 +3,87 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\UserResource;
 use App\Models\User;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
 {
-    public function register(Request $request): JsonResponse
+    /**
+     * Xử lý Đăng nhập (UC-01)
+     */
+    public function login(Request $request)
     {
-        $data = $request->validate([
-            'fullName' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:6'],
-            'role' => ['required', Rule::in([User::ROLE_STUDENT, User::ROLE_TEACHER])],
-            'department' => ['nullable', 'string', 'max:255'],
+        $request->validate([
+            'account'  => 'required|string',
+            'password' => 'required|string',
         ], [
-            'fullName.required' => 'Vui lòng nhập họ và tên.',
-            'email.required' => 'Vui lòng nhập email.',
-            'email.email' => 'Email không hợp lệ.',
-            'email.unique' => 'Email đã tồn tại trong hệ thống.',
-            'password.required' => 'Vui lòng nhập mật khẩu.',
-            'password.min' => 'Mật khẩu phải có ít nhất 6 ký tự.',
-            'role.required' => 'Vui lòng chọn vai trò.',
-            'role.in' => 'Không thể đăng ký tài khoản admin từ giao diện người dùng.',
-        ]);
-
-        $user = User::create([
-            'name' => $data['fullName'],
-            'email' => strtolower($data['email']),
-            'password' => $data['password'],
-            'role' => $data['role'],
-            'department' => $data['department'] ?? null,
-        ]);
-
-        $user->forceFill([
-            'student_id' => $this->makeStudentId($user),
-        ])->save();
-
-        return response()->json([
-            'user' => new UserResource($user),
-            'token' => $user->createToken('auth_token')->plainTextToken,
-        ], 201);
-    }
-
-    public function login(Request $request): JsonResponse
-    {
-        $credentials = $request->validate([
-            'email' => ['required', 'string', 'email'],
-            'password' => ['required', 'string'],
-        ], [
-            'email.required' => 'Vui lòng nhập email.',
-            'email.email' => 'Email không hợp lệ.',
+            'account.required'  => 'Vui lòng nhập Email hoặc Mã số định danh.',
             'password.required' => 'Vui lòng nhập mật khẩu.',
         ]);
 
-        $user = User::where('email', strtolower($credentials['email']))->first();
+        // Đăng nhập linh hoạt bằng Email HOẶC user_code
+        $user = User::where('email', $request->account)
+                    ->orWhere('user_code', $request->account)
+                    ->first();
 
-        if (! $user || ! Hash::check($credentials['password'], $user->password)) {
+        // 1. Kiểm tra tài khoản & mật khẩu Hash (HTTP 401)
+        if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json([
-                'message' => 'Email hoặc mật khẩu không đúng.',
+                'status'  => 'error',
+                'message' => 'Email/Mã số hoặc mật khẩu không chính xác.'
             ], 401);
         }
 
-        return response()->json([
-            'user' => new UserResource($user),
-            'token' => $user->createToken('auth_token')->plainTextToken,
-        ]);
-    }
-
-    public function me(Request $request): UserResource
-    {
-        return new UserResource($request->user());
-    }
-
-    public function logout(Request $request): JsonResponse
-    {
-        $token = $request->user()->currentAccessToken();
-
-        if ($token && method_exists($token, 'delete')) {
-            $token->delete();
+        // 2. Kiểm tra tài khoản bị vô hiệu hóa (HTTP 403)
+        if (!$user->is_active) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ Admin.'
+            ], 403);
         }
 
-        return response()->json(['message' => 'Đã đăng xuất.']);
+        // 3. Đăng nhập thành công -> Sinh Sanctum Token (HTTP 200)
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        return response()->json([
+            'status'       => 'success',
+            'message'      => 'Đăng nhập thành công.',
+            'access_token' => $token,
+            'token_type'   => 'Bearer',
+            'user'         => [
+                'id'        => $user->id,
+                'user_code' => $user->user_code,
+                'name'      => $user->name,
+                'email'     => $user->email,
+                'role'      => $user->role,
+                'avatar'    => $user->avatar,
+            ]
+        ], 200);
     }
 
-    private function makeStudentId(User $user): string
+    /**
+     * Lấy thông tin User đang đăng nhập (Check Token)
+     */
+    public function me(Request $request)
     {
-        $prefix = $user->role === User::ROLE_STUDENT ? 'SV' : 'GV';
+        return response()->json([
+            'status' => 'success',
+            'user'   => $request->user()
+        ], 200);
+    }
 
-        return $prefix.str_pad((string) $user->id, 6, '0', STR_PAD_LEFT);
+    /**
+     * Xử lý Đăng xuất (Thu hồi Sanctum Token)
+     */
+    public function logout(Request $request)
+    {
+        // Xóa Token hiện tại của User
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Đăng xuất thành công.'
+        ], 200);
     }
 }

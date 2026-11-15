@@ -10,9 +10,9 @@ import { GoogleIcon } from "@/components/auth/GoogleIcon";
 import { loginWithCredentials } from "@/lib/auth";
 
 const demoAccounts = {
-  student: { email: "student@hcmute.edu.vn", password: "123456", label: "sinh viên" },
-  teacher: { email: "teacher@hcmute.edu.vn", password: "123456", label: "giảng viên" },
-  admin: { email: "admin@hcmute.edu.vn", password: "123456", label: "quản trị viên" },
+  student: { email: "sv001@plt.edu.vn", password: "password123", label: "sinh viên" },
+  teacher: { email: "gv001@plt.edu.vn", password: "password123", label: "giảng viên" },
+  admin: { email: "admin@plt.edu.vn", password: "password123", label: "quản trị viên" },
 };
 
 const googleButtonClass =
@@ -27,22 +27,25 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
-  const handleSubmit = (event: React.FormEvent) => {
-    event.preventDefault();
-    setError("");
-    setNotice("");
-    setLoading(true);
+  const handleSubmit = async (event: React.FormEvent) => {
+  event.preventDefault();
+  setError("");
+  setNotice("");
+  setLoading(true);
 
-    const user = loginWithCredentials(email, password);
-    if (!user) {
-      setError("Email hoặc mật khẩu không đúng.");
-      setLoading(false);
-      return;
-    }
-
+  try {
+    await loginWithCredentials(email, password);
     router.push("/dashboard");
+  } catch (err: any) {
+    // Hiển thị đúng câu thông báo lỗi 401, 403, 422 từ AuthController.php
+    const serverMessage = err.response?.data?.message;
+    setError(
+      serverMessage || "Không thể kết nối đến máy chủ Backend (cổng 8000)."
+    );
+  } finally {
     setLoading(false);
-  };
+  }
+};
 
   const fillDemo = (account: keyof typeof demoAccounts) => {
     const demo = demoAccounts[account];
@@ -69,7 +72,7 @@ export default function LoginPage() {
           <AuthField
             label="Tên đăng nhập"
             name="email"
-            type="email"
+            type="text"
             autoComplete="username"
             value={email}
             onChange={(event) => setEmail(event.target.value)}

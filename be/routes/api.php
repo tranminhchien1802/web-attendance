@@ -1,21 +1,21 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/health', fn () => [
-    'status' => 'ok',
-    'timestamp' => now()->toISOString(),
-]);
+/*
+|--------------------------------------------------------------------------
+| Public Routes (Không cần Token)
+|--------------------------------------------------------------------------
+*/
+Route::post('/login', [AuthController::class, 'login']);
 
-Route::post('/auth/register', [AuthController::class, 'register']);
-Route::post('/auth/login', [AuthController::class, 'login']);
-
+/*
+|--------------------------------------------------------------------------
+| Protected Routes (Yêu cầu Header Authorization: Bearer {token})
+|--------------------------------------------------------------------------
+*/
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/auth/me', [AuthController::class, 'me']);
-    Route::post('/auth/logout', [AuthController::class, 'logout']);
-
-    Route::get('/users', [UserController::class, 'index']);
-    Route::patch('/users/{user}/role', [UserController::class, 'updateRole']);
+    Route::get('/me', [AuthController::class, 'me']);
+    Route::post('/logout', [AuthController::class, 'logout']);
 });
