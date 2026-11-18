@@ -25,17 +25,21 @@ class UserFactory extends Factory
     public function definition(): array
     {
         return [
+            'user_code' => 'USR'.Str::upper(Str::random(10)),
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
-            'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'role' => User::ROLE_STUDENT,
-            'student_id' => null,
+            'phone' => fake()->numerify('09########'),
+            'gender' => fake()->randomElement(['male', 'female']),
+            'is_active' => true,
             'department' => fake()->randomElement([
                 'Kỹ thuật phần mềm',
                 'Khoa Công nghệ Thông tin',
                 'Phòng Đào tạo',
             ]),
+            'faculty' => 'Khoa Công nghệ Thông tin',
+            'major' => 'Kỹ thuật phần mềm',
             'remember_token' => Str::random(10),
         ];
     }

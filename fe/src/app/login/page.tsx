@@ -10,9 +10,9 @@ import { GoogleIcon } from "@/components/auth/GoogleIcon";
 import { loginWithCredentials } from "@/lib/auth";
 
 const demoAccounts = {
-  student: { email: "sv001@plt.edu.vn", password: "password123", label: "sinh viên" },
-  teacher: { email: "gv001@plt.edu.vn", password: "password123", label: "giảng viên" },
-  admin: { email: "admin@plt.edu.vn", password: "password123", label: "quản trị viên" },
+  student: { email: "student@hcmute.edu.vn", password: "123456", label: "sinh viên" },
+  teacher: { email: "teacher@hcmute.edu.vn", password: "123456", label: "giảng viên" },
+  admin: { email: "admin@hcmute.edu.vn", password: "123456", label: "quản trị viên" },
 };
 
 const googleButtonClass =
@@ -34,13 +34,13 @@ export default function LoginPage() {
   setLoading(true);
 
   try {
-    await loginWithCredentials(email, password);
-    router.push("/dashboard");
+    const user = await loginWithCredentials(email, password);
+    router.replace(user.role === "student" ? "/student/Index" : user.role === "teacher" ? "/teacher/Index" : "/dashboard");
   } catch (err: any) {
     // Hiển thị đúng câu thông báo lỗi 401, 403, 422 từ AuthController.php
     const serverMessage = err.response?.data?.message;
     setError(
-      serverMessage || "Không thể kết nối đến máy chủ Backend (cổng 8000)."
+      serverMessage || "Không thể kết nối đến máy chủ Backend. Kiểm tra cấu hình NEXT_PUBLIC_API_URL."
     );
   } finally {
     setLoading(false);
@@ -138,9 +138,9 @@ export default function LoginPage() {
             Quên mật khẩu?
           </button>
           <p>
-            Chưa có tài khoản?{" "}
-            <Link href="/register" className="font-semibold text-[#00558d] hover:underline">
-              Đăng ký ngay
+          Cần cấp tài khoản?{" "}
+          <Link href="/register" className="font-semibold text-[#00558d] hover:underline">
+            Liên hệ quản trị viên
             </Link>
           </p>
           <button type="button" onClick={() => fillDemo("admin")} className="text-[11px] text-[#8491a3] transition hover:text-[#00558d]">

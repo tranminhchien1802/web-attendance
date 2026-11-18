@@ -32,11 +32,47 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { getCurrentUser, getUsers, logoutUser, updateUserRole, type AppUser, type UserRole } from "@/lib/auth";
+import {
+  createManagedUser,
+  deleteManagedUser,
+  fetchMe,
+  fetchUsers,
+  logoutUser,
+  updateManagedUser,
+  type AppUser,
+  type ManagedUserPayload,
+  type ManagedUserRole,
+  type UserGender,
+  type UserRole,
+} from "@/lib/auth";
 import { getClassesForTeacher } from "@/lib/portalData";
 
 type NavigationItem = { label: string; icon: LucideIcon; href: string };
 type StatItem = { label: string; value: string; note: string; icon: LucideIcon; tone: string };
+type AccountFormState = ManagedUserPayload & { password: string };
+
+const emptyAccountForm = (): AccountFormState => ({
+  userCode: "",
+  fullName: "",
+  email: "",
+  password: "",
+  role: "student",
+  phone: "",
+  gender: "male",
+  avatar: "",
+  isActive: true,
+  department: "",
+  faculty: "",
+  major: "",
+});
+
+function getAccountError(error: unknown, fallback: string) {
+  const response = (error as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } })?.response;
+  const validationMessage = response?.data?.errors
+    ? Object.values(response.data.errors).flat()[0]
+    : undefined;
+  return validationMessage || response?.data?.message || fallback;
+}
 
 const roleLabels: Record<UserRole, string> = {
   student: "Sinh viên",
@@ -137,6 +173,31 @@ const toneClasses: Record<string, string> = {
   amber: "bg-amber-50 text-amber-700",
 };
 
+const dashboardHeroImages = [
+  "/images/dashboard-campus-modern.png",
+  "/images/dashboard-lab-team.png",
+  "/images/dashboard-lecture-hall.png",
+];
+
+function DashboardHeroBackground({ activeIndex }: { activeIndex: number }) {
+  return (
+    <div aria-hidden="true" className="absolute inset-0 z-0">
+      {dashboardHeroImages.map((src, index) => (
+        <Image
+          key={src}
+          src={src}
+          alt=""
+          fill
+          sizes="100vw"
+          priority={index === 0}
+          className={`object-cover transition-opacity duration-1000 ease-in-out motion-reduce:transition-none ${activeIndex === index ? "opacity-100" : "opacity-0"}`}
+        />
+      ))}
+      <div className="absolute inset-0 z-[1]" style={{ backgroundImage: "linear-gradient(90deg, rgba(13,49,89,.90), rgba(13,49,89,.64) 55%, rgba(13,49,89,.34))" }} />
+    </div>
+  );
+}
+
 function StatCard({ label, value, note, icon: Icon, tone }: StatItem) {
   return (
     <article className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_3px_14px_rgba(15,23,42,0.03)] sm:p-5">
@@ -170,22 +231,52 @@ export default function PortalDashboard({ requiredRole }: { requiredRole?: UserR
   const router = useRouter();
   const [user, setUser] = useState<AppUser | null>(null);
   const [accounts, setAccounts] = useState<AppUser[]>([]);
+  const [accountsLoading, setAccountsLoading] = useState(false);
+  const [accountsError, setAccountsError] = useState("");
+  const [accountFormOpen, setAccountFormOpen] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<AppUser | null>(null);
+  const [accountForm, setAccountForm] = useState<AccountFormState>(emptyAccountForm);
+  const [accountFormError, setAccountFormError] = useState("");
+  const [accountSaving, setAccountSaving] = useState(false);
+  const [accountActionError, setAccountActionError] = useState("");
+  const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [activeNav, setActiveNav] = useState("#overview");
 
   useEffect(() => {
-    const currentUser = getCurrentUser();
-    if (!currentUser) {
-      router.replace("/login");
-      return;
-    }
-    if (requiredRole && currentUser.role !== requiredRole) {
-      router.replace(currentUser.role === "student" ? "/student/Index" : currentUser.role === "teacher" ? "/teacher/Index" : "/dashboard");
-      return;
-    }
-    setUser(currentUser);
-    setAccounts(getUsers());
+    let mounted = true;
+
+    const loadDashboard = async () => {
+      const currentUser = await fetchMe();
+      if (!mounted) return;
+      if (!currentUser) {
+        router.replace("/login");
+        return;
+      }
+      if (requiredRole && currentUser.role !== requiredRole) {
+        router.replace(currentUser.role === "student" ? "/student/Index" : currentUser.role === "teacher" ? "/teacher/Index" : "/dashboard");
+        return;
+      }
+
+      setUser(currentUser);
+      if (currentUser.role === "admin") {
+        setAccountsLoading(true);
+        try {
+          setAccounts(await fetchUsers());
+          setAccountsError("");
+        } catch (error) {
+          setAccountsError(getAccountError(error, "Không tải được danh sách tài khoản."));
+        } finally {
+          if (mounted) setAccountsLoading(false);
+        }
+      }
+    };
+
+    void loadDashboard();
+    return () => {
+      mounted = false;
+    };
   }, [requiredRole, router]);
 
   useEffect(() => {
@@ -196,6 +287,18 @@ export default function PortalDashboard({ requiredRole }: { requiredRole?: UserR
   }, [mobileNavOpen]);
 
   const role = user?.role ?? "student";
+  const [heroImageIndex, setHeroImageIndex] = useState(0);
+
+  useEffect(() => {
+    if (!user || role === "admin") return;
+
+    const timer = window.setInterval(() => {
+      setHeroImageIndex((current) => (current + 1) % dashboardHeroImages.length);
+    }, 7000);
+
+    return () => window.clearInterval(timer);
+  }, [role, user]);
+
   const filteredNotices = useMemo(
     () => notices.filter((notice) => `${notice.title} ${notice.sender} ${notice.tag}`.toLowerCase().includes(search.toLowerCase())),
     [search]
@@ -210,7 +313,7 @@ export default function PortalDashboard({ requiredRole }: { requiredRole?: UserR
     [search, user]
   );
   const filteredAccounts = useMemo(
-    () => accounts.filter((account) => `${account.fullName} ${account.email} ${roleLabels[account.role]}`.toLowerCase().includes(search.toLowerCase())),
+    () => accounts.filter((account) => `${account.fullName} ${account.userCode} ${account.email} ${roleLabels[account.role]}`.toLowerCase().includes(search.toLowerCase())),
     [accounts, search]
   );
 
@@ -221,9 +324,80 @@ export default function PortalDashboard({ requiredRole }: { requiredRole?: UserR
     router.push("/login");
   };
 
-  const handleRoleUpdate = (targetId: string, nextRole: "student" | "teacher") => {
-    updateUserRole(targetId, nextRole);
-    setAccounts(getUsers());
+  const openCreateAccount = () => {
+    setEditingAccount(null);
+    setAccountForm(emptyAccountForm());
+    setAccountFormError("");
+    setAccountActionError("");
+    setAccountFormOpen(true);
+  };
+
+  const openEditAccount = (account: AppUser) => {
+    setEditingAccount(account);
+    setAccountForm({
+      userCode: account.userCode,
+      fullName: account.fullName,
+      email: account.email,
+      password: "",
+      role: account.role === "teacher" ? "teacher" : "student",
+      phone: account.phone || "",
+      gender: account.gender || "male",
+      avatar: account.avatar || "",
+      isActive: account.isActive,
+      department: account.department || "",
+      faculty: account.faculty || "",
+      major: account.major || "",
+    });
+    setAccountFormError("");
+    setAccountActionError("");
+    setAccountFormOpen(true);
+  };
+
+  const handleAccountFormChange = (field: keyof AccountFormState, value: string | boolean) => {
+    setAccountForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleAccountSave = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setAccountSaving(true);
+    setAccountFormError("");
+    setAccountActionError("");
+
+    const payload: ManagedUserPayload = {
+      ...accountForm,
+      password: accountForm.password.trim() || undefined,
+    };
+
+    try {
+      if (editingAccount) {
+        const updated = await updateManagedUser(editingAccount.id, payload);
+        setAccounts((current) => current.map((item) => item.id === updated.id ? updated : item));
+      } else {
+        const created = await createManagedUser(payload);
+        setAccounts((current) => [...current, created].sort((a, b) => a.fullName.localeCompare(b.fullName, "vi")));
+      }
+      setAccountFormOpen(false);
+      setEditingAccount(null);
+    } catch (error) {
+      setAccountFormError(getAccountError(error, "Không lưu được tài khoản."));
+    } finally {
+      setAccountSaving(false);
+    }
+  };
+
+  const handleAccountDelete = async (account: AppUser) => {
+    if (!window.confirm(`Xóa tài khoản ${account.fullName} (${account.userCode})?`)) return;
+
+    setDeletingAccountId(account.id);
+    setAccountActionError("");
+    try {
+      await deleteManagedUser(account.id);
+      setAccounts((current) => current.filter((item) => item.id !== account.id));
+    } catch (error) {
+      setAccountActionError(getAccountError(error, "Không xóa được tài khoản."));
+    } finally {
+      setDeletingAccountId(null);
+    }
   };
 
   const closeMobileNav = () => setMobileNavOpen(false);
@@ -236,7 +410,7 @@ export default function PortalDashboard({ requiredRole }: { requiredRole?: UserR
         </div>
         <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-[0.11em] text-blue-700">Cổng đào tạo</p>
-          <p className="mt-1 text-xs font-bold leading-4 text-slate-800">Công ty TNHH<br />Phan Gia Phước</p>
+          <p className="mt-1 text-xs font-bold leading-4 text-slate-800">CÔNG TY TNHH<br />PLT SOLUTIONS</p>
         </div>
       </div>
 
@@ -283,10 +457,11 @@ export default function PortalDashboard({ requiredRole }: { requiredRole?: UserR
 
   const renderStudentDashboard = () => (
     <div className="space-y-6">
-      <section id="overview" className="dashboard-hero relative isolate min-h-[220px] overflow-hidden rounded-2xl bg-[#103d70] bg-cover bg-center shadow-sm sm:min-h-[250px]" style={{ backgroundImage: "linear-gradient(90deg, rgba(13,49,89,.94), rgba(13,49,89,.46)), url(/images/hcmute-campus.jpg)", backgroundSize: "cover", backgroundPosition: "center" }}>
-        <div aria-hidden="true" className="absolute -right-14 -top-28 -z-10 h-80 w-80 rounded-full border-[38px] border-white/[0.06]" />
-        <div aria-hidden="true" className="absolute -bottom-32 right-36 -z-10 h-64 w-64 rounded-full bg-cyan-300/[0.08] blur-2xl" />
-        <div className="relative flex min-h-[220px] flex-col justify-between gap-7 p-5 text-white sm:min-h-[250px] sm:p-8 md:flex-row md:items-end">
+      <section id="overview" className="dashboard-hero relative isolate min-h-[220px] overflow-hidden rounded-2xl bg-[#103d70] shadow-sm sm:min-h-[250px]">
+        <DashboardHeroBackground activeIndex={heroImageIndex} />
+        <div aria-hidden="true" className="absolute -right-14 -top-28 z-[2] h-80 w-80 rounded-full border-[38px] border-white/[0.06]" />
+        <div aria-hidden="true" className="absolute -bottom-32 right-36 z-[2] h-64 w-64 rounded-full bg-cyan-300/[0.08] blur-2xl" />
+        <div className="relative z-10 flex min-h-[220px] flex-col justify-between gap-7 p-5 text-white sm:min-h-[250px] sm:p-8 md:flex-row md:items-end">
           <div className="max-w-2xl">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-100">Cổng thông tin đào tạo · Sinh viên</p>
             <h1 className="mt-3 text-2xl font-bold tracking-tight sm:text-3xl">Chào mừng trở lại, {user.fullName.split(" ").slice(-2).join(" ")}</h1>
@@ -413,10 +588,11 @@ export default function PortalDashboard({ requiredRole }: { requiredRole?: UserR
           : stat);
       return (
     <div className="space-y-6">
-      <section id="overview" className="dashboard-hero relative isolate min-h-[220px] overflow-hidden rounded-2xl bg-[#103d70] bg-cover bg-center shadow-sm sm:min-h-[250px]" style={{ backgroundImage: "linear-gradient(90deg, rgba(13,49,89,.94), rgba(13,49,89,.46)), url(/images/hcmute-campus.jpg)", backgroundSize: "cover", backgroundPosition: "center" }}>
-        <div aria-hidden="true" className="absolute -right-14 -top-28 -z-10 h-80 w-80 rounded-full border-[38px] border-white/[0.06]" />
-        <div aria-hidden="true" className="absolute -bottom-32 right-36 -z-10 h-64 w-64 rounded-full bg-cyan-300/[0.08] blur-2xl" />
-        <div className="relative flex min-h-[220px] flex-col justify-between gap-7 p-5 text-white sm:min-h-[250px] sm:p-8 md:flex-row md:items-end">
+      <section id="overview" className="dashboard-hero relative isolate min-h-[220px] overflow-hidden rounded-2xl bg-[#103d70] shadow-sm sm:min-h-[250px]">
+        <DashboardHeroBackground activeIndex={heroImageIndex} />
+        <div aria-hidden="true" className="absolute -right-14 -top-28 z-[2] h-80 w-80 rounded-full border-[38px] border-white/[0.06]" />
+        <div aria-hidden="true" className="absolute -bottom-32 right-36 z-[2] h-64 w-64 rounded-full bg-cyan-300/[0.08] blur-2xl" />
+        <div className="relative z-10 flex min-h-[220px] flex-col justify-between gap-7 p-5 text-white sm:min-h-[250px] sm:p-8 md:flex-row md:items-end">
           <div className="max-w-2xl"><p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-100">Cổng thông tin đào tạo · Giảng viên</p><h1 className="mt-3 text-2xl font-bold tracking-tight sm:text-3xl">Xin chào, {user.fullName}</h1><p className="mt-2 max-w-xl text-sm leading-6 text-blue-50/90">Quản lý lịch giảng dạy, lớp học và tiến độ học tập của sinh viên.</p></div>
           <div className="flex shrink-0 items-center gap-3 rounded-xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-sm"><CalendarClock className="h-5 w-5 text-blue-100" /><div><p className="text-[10px] uppercase tracking-[0.12em] text-blue-100">Học kỳ hiện tại</p><p className="mt-1 text-sm font-semibold">Học kỳ 1 · 2026–2027</p></div></div>
         </div>
@@ -466,7 +642,106 @@ export default function PortalDashboard({ requiredRole }: { requiredRole?: UserR
         { label: "Giảng viên", value: accounts.filter((item) => item.role === "teacher").length, icon: BookOpen },
         { label: "Quyền quản trị", value: accounts.filter((item) => item.role === "admin").length, icon: ShieldCheck },
       ].map(({ label, value, icon: Icon }) => <article key={label} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-center justify-between"><p className="text-xs text-slate-500">{label}</p><Icon className="h-4 w-4 text-blue-700" /></div><p className="mt-2 text-2xl font-bold text-slate-900">{value}</p></article>)}</section>
-      <section id="accounts" className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5"><SectionHeading eyebrow="Quản trị" title="Danh sách tài khoản" action={<span className="text-xs text-slate-500">{filteredAccounts.length} tài khoản</span>} /><div className="overflow-x-auto"><table className="w-full min-w-[620px] text-left text-xs"><thead><tr className="border-b border-slate-100 text-[10px] uppercase tracking-[0.08em] text-slate-400"><th className="pb-3 font-semibold">Họ và tên</th><th className="pb-3 font-semibold">Khoa / ngành</th><th className="pb-3 font-semibold">Email</th><th className="pb-3 font-semibold">Vai trò</th><th className="pb-3 font-semibold">Phân quyền</th></tr></thead><tbody>{filteredAccounts.map((account) => <tr key={account.id} className="border-b border-slate-50 last:border-0"><td className="py-3 font-semibold text-slate-700">{account.fullName}</td><td className="py-3 text-slate-500">{account.email}</td><td className="py-3 text-slate-500"><span className="font-medium text-slate-700">{account.faculty || account.department || "—"}</span>{account.major ? <span className="mt-1 block text-[10px]">{account.major}</span> : null}</td><td className="py-3"><span className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-semibold text-blue-800">{roleLabels[account.role]}</span></td><td className="py-3">{account.role === "admin" ? <span className="text-slate-400">Quản trị viên</span> : <div className="flex gap-2"><button type="button" onClick={() => handleRoleUpdate(account.id, "student")} className={`rounded-lg px-2 py-1 text-[10px] font-semibold ${account.role === "student" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>Sinh viên</button><button type="button" onClick={() => handleRoleUpdate(account.id, "teacher")} className={`rounded-lg px-2 py-1 text-[10px] font-semibold ${account.role === "teacher" ? "bg-violet-100 text-violet-800" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>Giảng viên</button></div>}</td></tr>)}</tbody></table>{!filteredAccounts.length ? <p className="py-6 text-center text-sm text-slate-500">Không tìm thấy tài khoản phù hợp.</p> : null}</div></section>
+      <section id="accounts" className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+        <SectionHeading
+          eyebrow="Quản trị"
+          title="Danh sách tài khoản"
+          action={
+            <button type="button" onClick={openCreateAccount} className="rounded-xl bg-[#0d4d90] px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-[#093b70]">
+              Thêm tài khoản
+            </button>
+          }
+        />
+
+        {accountFormOpen ? (
+          <form onSubmit={handleAccountSave} className="mb-5 rounded-xl border border-blue-100 bg-blue-50/50 p-4">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h3 className="font-bold text-slate-900">{editingAccount ? "Sửa tài khoản" : "Thêm tài khoản"}</h3>
+                <p className="mt-1 text-xs text-slate-500">Tạo và cập nhật hồ sơ sinh viên hoặc giảng viên.</p>
+              </div>
+              <button type="button" onClick={() => setAccountFormOpen(false)} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-white">Đóng</button>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <label className="text-xs font-semibold text-slate-700">Loại tài khoản
+                <select value={accountForm.role} onChange={(event) => handleAccountFormChange("role", event.target.value as ManagedUserRole)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal">
+                  <option value="student">Sinh viên</option>
+                  <option value="teacher">Giảng viên</option>
+                </select>
+              </label>
+              <label className="text-xs font-semibold text-slate-700">{accountForm.role === "student" ? "Mã sinh viên" : "Mã giảng viên"}
+                <input required maxLength={20} value={accountForm.userCode} onChange={(event) => handleAccountFormChange("userCode", event.target.value.trim())} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal" />
+              </label>
+              <label className="text-xs font-semibold text-slate-700">Họ và tên
+                <input required maxLength={100} value={accountForm.fullName} onChange={(event) => handleAccountFormChange("fullName", event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal" />
+              </label>
+              <label className="text-xs font-semibold text-slate-700">Email
+                <input required type="email" maxLength={100} value={accountForm.email} onChange={(event) => handleAccountFormChange("email", event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal" />
+              </label>
+              <label className="text-xs font-semibold text-slate-700">{editingAccount ? "Mật khẩu mới (để trống nếu giữ nguyên)" : "Mật khẩu"}
+                <input required={!editingAccount} type="password" minLength={8} autoComplete="new-password" value={accountForm.password} onChange={(event) => handleAccountFormChange("password", event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal" />
+              </label>
+              <label className="text-xs font-semibold text-slate-700">Số điện thoại
+                <input maxLength={15} value={accountForm.phone || ""} onChange={(event) => handleAccountFormChange("phone", event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal" />
+              </label>
+              <label className="text-xs font-semibold text-slate-700">Giới tính
+                <select value={accountForm.gender} onChange={(event) => handleAccountFormChange("gender", event.target.value as UserGender)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal">
+                  <option value="male">Nam</option>
+                  <option value="female">Nữ</option>
+                </select>
+              </label>
+              <label className="text-xs font-semibold text-slate-700">Khoa
+                <input maxLength={100} value={accountForm.faculty || ""} onChange={(event) => handleAccountFormChange("faculty", event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal" />
+              </label>
+              <label className="text-xs font-semibold text-slate-700">Bộ môn / phòng
+                <input maxLength={100} value={accountForm.department || ""} onChange={(event) => handleAccountFormChange("department", event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal" />
+              </label>
+              <label className="text-xs font-semibold text-slate-700">Ngành / chuyên môn
+                <input maxLength={100} value={accountForm.major || ""} onChange={(event) => handleAccountFormChange("major", event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal" />
+              </label>
+              <label className="text-xs font-semibold text-slate-700">Ảnh đại diện (đường dẫn)
+                <input maxLength={255} value={accountForm.avatar || ""} onChange={(event) => handleAccountFormChange("avatar", event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal" />
+              </label>
+              <label className="flex items-center gap-2 self-end rounded-lg border border-slate-200 bg-white px-3 py-3 text-xs font-semibold text-slate-700">
+                <input type="checkbox" checked={accountForm.isActive} onChange={(event) => handleAccountFormChange("isActive", event.target.checked)} className="h-4 w-4 accent-blue-700" />
+                Tài khoản đang hoạt động
+              </label>
+            </div>
+
+            {accountFormError ? <p role="alert" className="mt-3 text-xs font-medium text-rose-700">{accountFormError}</p> : null}
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" onClick={() => setAccountFormOpen(false)} className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700">Hủy</button>
+              <button type="submit" disabled={accountSaving} className="rounded-lg bg-[#0d4d90] px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-60">{accountSaving ? "Đang lưu..." : "Lưu tài khoản"}</button>
+            </div>
+          </form>
+        ) : null}
+
+        {accountsError ? <p role="alert" className="mb-3 rounded-lg bg-rose-50 px-3 py-2.5 text-xs text-rose-700">{accountsError}</p> : null}
+        {accountActionError ? <p role="alert" className="mb-3 rounded-lg bg-rose-50 px-3 py-2.5 text-xs text-rose-700">{accountActionError}</p> : null}
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[980px] text-left text-xs">
+            <thead><tr className="border-b border-slate-100 text-[10px] uppercase tracking-[0.08em] text-slate-400">
+              <th className="pb-3 font-semibold">Họ và tên / mã</th><th className="pb-3 font-semibold">Khoa / bộ môn / ngành</th><th className="pb-3 font-semibold">Email / điện thoại</th><th className="pb-3 font-semibold">Vai trò</th><th className="pb-3 font-semibold">Trạng thái</th><th className="pb-3 text-right font-semibold">Thao tác</th>
+            </tr></thead>
+            <tbody>
+              {filteredAccounts.map((account) => (
+                <tr key={account.id} className="border-b border-slate-50 last:border-0">
+                  <td className="py-3 font-semibold text-slate-700">{account.fullName}<span className="mt-1 block text-[10px] font-normal text-slate-500">{account.userCode}</span></td>
+                  <td className="py-3 text-slate-600">{account.faculty || account.department || "—"}{account.department && account.faculty ? <span className="mt-1 block text-[10px] text-slate-500">{account.department}</span> : null}{account.major ? <span className="mt-1 block text-[10px] text-slate-500">{account.major}</span> : null}</td>
+                  <td className="py-3 text-slate-600">{account.email}{account.phone ? <span className="mt-1 block text-[10px] text-slate-500">{account.phone}</span> : null}</td>
+                  <td className="py-3"><span className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-semibold text-blue-800">{roleLabels[account.role]}</span></td>
+                  <td className="py-3"><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${account.isActive ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>{account.isActive ? "Hoạt động" : "Đã khóa"}</span></td>
+                  <td className="py-3 text-right">{account.role === "admin" ? <span className="text-slate-400">Tài khoản quản trị</span> : <div className="inline-flex gap-2"><button type="button" onClick={() => openEditAccount(account)} className="rounded-lg bg-slate-100 px-2.5 py-1.5 font-semibold text-slate-700 hover:bg-slate-200">Sửa</button><button type="button" disabled={deletingAccountId === account.id} onClick={() => void handleAccountDelete(account)} className="rounded-lg bg-rose-50 px-2.5 py-1.5 font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-60">{deletingAccountId === account.id ? "Đang xóa..." : "Xóa"}</button></div>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {accountsLoading ? <p className="py-6 text-center text-sm text-slate-500">Đang tải danh sách tài khoản...</p> : null}
+          {!accountsLoading && !filteredAccounts.length && !accountsError ? <p className="py-6 text-center text-sm text-slate-500">Không tìm thấy tài khoản phù hợp.</p> : null}
+        </div>
+      </section>
       <section id="profile" className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5"><SectionHeading eyebrow="Tài khoản" title="Thông tin cá nhân" /><div className="grid gap-4 sm:grid-cols-3"><ProfileField label="Họ và tên" value={user.fullName} /><ProfileField label="Email" value={user.email} /><ProfileField label="Vai trò" value={roleLabels[user.role]} /></div></section>
     </div>
   );
@@ -480,7 +755,7 @@ export default function PortalDashboard({ requiredRole }: { requiredRole?: UserR
           <div className="flex min-w-0 items-center gap-3">
             <button type="button" onClick={() => setMobileNavOpen(true)} aria-label="Mở menu" className="rounded-lg border border-white/15 p-2 text-white transition hover:bg-white/10 lg:hidden"><Menu className="h-5 w-5" /></button>
             <div className="flex h-9 min-w-[58px] items-center justify-center rounded-md bg-white px-1.5 sm:h-10 sm:min-w-[76px] sm:px-2"><Image src="/images/logo.png" alt="Logo công ty" width={720} height={424} className="h-7 w-auto object-contain sm:h-8" priority /></div>
-            <div className="min-w-0"><p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-blue-200">Cổng thông tin đào tạo</p><p className="truncate text-sm font-bold sm:text-base">Công ty trách nhiệm hữu hạn Phan Gia Phước</p></div>
+            <div className="min-w-0"><p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-blue-200">Cổng thông tin đào tạo</p><p className="truncate text-sm font-bold sm:text-base">CÔNG TY TNHH PLT SOLUTIONS</p></div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
             <label className="hidden h-9 w-52 items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-3 text-blue-100 md:flex lg:w-64"><Search className="h-4 w-4 shrink-0" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={user.role === "student" ? "Tìm thông báo..." : user.role === "teacher" ? "Tìm lớp học..." : "Tìm tài khoản..."} aria-label="Tìm kiếm" className="min-w-0 flex-1 bg-transparent text-xs text-white outline-none placeholder:text-blue-100/60" /></label>
@@ -497,7 +772,7 @@ export default function PortalDashboard({ requiredRole }: { requiredRole?: UserR
         <div className="min-w-0 flex-1">
           <div className="mb-4 flex items-center justify-between gap-3 px-1 text-xs text-slate-500"><div className="flex items-center gap-2"><span className="font-medium text-slate-700">{roleLabels[user.role]}</span><ChevronRight className="h-3 w-3" /><span>Tổng quan</span></div><span className="hidden items-center gap-1 sm:flex"><Clock3 className="h-3.5 w-3.5" /> Học kỳ 1 · 2026–2027</span></div>
           {user.role === "student" ? renderStudentDashboard() : user.role === "teacher" ? renderTeacherDashboard() : renderAdminDashboard()}
-          <footer className="py-6 text-center text-[10px] text-slate-400">Cổng thông tin đào tạo · Công ty TNHH Phan Gia Phước</footer>
+          <footer className="py-6 text-center text-[10px] text-slate-400">Cổng thông tin đào tạo · CÔNG TY TNHH PLT SOLUTIONS</footer>
         </div>
       </div>
     </main>

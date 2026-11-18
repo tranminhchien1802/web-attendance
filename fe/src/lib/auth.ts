@@ -1,58 +1,79 @@
 import axiosClient from "./axiosClient";
 
 export type UserRole = "student" | "teacher" | "admin";
+export type ManagedUserRole = Exclude<UserRole, "admin">;
+export type UserGender = "male" | "female";
 
 export type AppUser = {
   id: string;
+  userCode: string;
   fullName: string;
   email: string;
-  password: string;
   role: UserRole;
   studentId?: string;
+  phone?: string | null;
+  gender?: UserGender;
   avatar?: string | null;
+  department?: string | null;
+  faculty?: string | null;
+  major?: string | null;
+  isActive: boolean;
+};
+
+export type ManagedUserPayload = {
+  userCode: string;
+  fullName: string;
+  email: string;
+  password?: string;
+  role: ManagedUserRole;
+  phone?: string;
+  gender: UserGender;
+  avatar?: string;
+  isActive: boolean;
   department?: string;
   faculty?: string;
   major?: string;
 };
 
-const USERS_KEY = "hcmute_users";
+type BackendUser = {
+  id: number | string;
+  userCode?: string;
+  user_code?: string;
+  fullName?: string;
+  name?: string;
+  email: string;
+  role: "admin" | "lecturer" | "teacher" | "student";
+  phone?: string | null;
+  gender?: UserGender;
+  avatar?: string | null;
+  isActive?: boolean;
+  is_active?: boolean;
+  department?: string | null;
+  faculty?: string | null;
+  major?: string | null;
+};
+
 const CURRENT_USER_KEY = "hcmute_current_user";
 const ACCESS_TOKEN_KEY = "access_token";
 
-// Chuyển đổi dữ liệu user từ Laravel sang đúng định dạng AppUser của FE
-function mapBackendUserToAppUser(beUser: {
-  id: number | string;
-  user_code: string;
-  name: string;
-  email: string;
-  role: "admin" | "lecturer" | "student";
-  avatar?: string | null;
-}): AppUser {
-  const mappedRole: UserRole =
-    beUser.role === "lecturer" ? "teacher" : beUser.role;
+function mapBackendUserToAppUser(beUser: BackendUser): AppUser {
+  const userCode = beUser.userCode ?? beUser.user_code ?? "";
 
   return {
     id: String(beUser.id),
-    fullName: beUser.name,
+    userCode,
+    fullName: beUser.fullName ?? beUser.name ?? "",
     email: beUser.email,
-    password: "",
-    role: mappedRole,
-    studentId: beUser.user_code,
-    avatar: beUser.avatar || null,
-    department: "Công nghệ thông tin",
-    faculty: "Khoa Công nghệ thông tin",
+    role: beUser.role === "lecturer" ? "teacher" : beUser.role,
+    studentId: userCode,
+    phone: beUser.phone ?? null,
+    gender: beUser.gender,
+    avatar: beUser.avatar ?? null,
+    department: beUser.department ?? null,
+    faculty: beUser.faculty ?? null,
+    major: beUser.major ?? null,
+    isActive: beUser.isActive ?? beUser.is_active ?? true,
   };
-}
-
-export function getUsers(): AppUser[] {
-  if (typeof window === "undefined") return [];
-  const raw = window.localStorage.getItem(USERS_KEY);
-  if (!raw) return [];
-  try {
-    return JSON.parse(raw) as AppUser[];
-  } catch {
-    return [];
-  }
 }
 
 export function getCurrentUser(): AppUser | null {
@@ -81,14 +102,13 @@ export function setCurrentUser(user: AppUser | null) {
   window.localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
 }
 
-// Hàm Đăng nhập gọi thẳng API POST /api/login của Laravel
 export async function loginWithCredentials(
   account: string,
   password: string
 ): Promise<AppUser> {
   const response = await axiosClient.post("/login", {
     account: account.trim(),
-    password: password,
+    password,
   });
 
   const { access_token, user } = response.data;
@@ -102,7 +122,6 @@ export async function loginWithCredentials(
   return appUser;
 }
 
-// Kiểm tra Token còn sống hay không qua API GET /api/me
 export async function fetchMe(): Promise<AppUser | null> {
   try {
     const response = await axiosClient.get("/me");
@@ -115,14 +134,34 @@ export async function fetchMe(): Promise<AppUser | null> {
   }
 }
 
-// Hàm Đăng xuất gọi API POST /api/logout để thu hồi Token trong MySQL
+export async function fetchUsers(): Promise<AppUser[]> {
+  const response = await axiosClient.get("/users");
+  return (response.data as BackendUser[]).map(mapBackendUserToAppUser);
+}
+
+export async function createManagedUser(payload: ManagedUserPayload): Promise<AppUser> {
+  const response = await axiosClient.post("/users", payload);
+  return mapBackendUserToAppUser(response.data);
+}
+
+export async function updateManagedUser(
+  userId: string,
+  payload: Partial<ManagedUserPayload>
+): Promise<AppUser> {
+  const response = await axiosClient.patch(`/users/${userId}`, payload);
+  return mapBackendUserToAppUser(response.data);
+}
+
+export async function deleteManagedUser(userId: string): Promise<void> {
+  await axiosClient.delete(`/users/${userId}`);
+}
+
 export async function logoutUser() {
   const token =
     typeof window !== "undefined"
       ? window.localStorage.getItem(ACCESS_TOKEN_KEY)
       : null;
 
-  // Xóa ngay dữ liệu đăng nhập trên trình duyệt
   setCurrentUser(null);
 
   if (token) {
@@ -147,7 +186,6 @@ export function isAuthenticated(): boolean {
   );
 }
 
-// Giữ lại các hàm phụ để tránh lỗi import ở các trang chưa nối API
 export function registerUser(_payload: {
   fullName: string;
   email: string;
@@ -158,11 +196,4 @@ export function registerUser(_payload: {
   major?: string;
 }): AppUser {
   throw new Error("Chức năng tự đăng ký đang khóa. Vui lòng liên hệ Admin.");
-}
-
-export function updateUserRole(
-  _userId: string,
-  _nextRole: Exclude<UserRole, "admin">
-): AppUser[] {
-  return getUsers();
 }

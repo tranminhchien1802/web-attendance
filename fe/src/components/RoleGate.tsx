@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getCurrentUser, type UserRole } from "@/lib/auth";
+import { fetchMe, type UserRole } from "@/lib/auth";
 
 const homeForRole: Record<UserRole, string> = {
   student: "/student/Index",
@@ -16,16 +16,26 @@ export function RoleGate({ role, children }: { role: UserRole; children: ReactNo
   const [allowed, setAllowed] = useState(false);
 
   useEffect(() => {
-    const user = getCurrentUser();
-    if (!user) {
-      router.replace("/login");
-      return;
-    }
-    if (user.role !== role) {
-      router.replace(homeForRole[user.role]);
-      return;
-    }
-    setAllowed(true);
+    let mounted = true;
+
+    const authorizePage = async () => {
+      const user = await fetchMe();
+      if (!mounted) return;
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+      if (user.role !== role) {
+        router.replace(homeForRole[user.role]);
+        return;
+      }
+      setAllowed(true);
+    };
+
+    void authorizePage();
+    return () => {
+      mounted = false;
+    };
   }, [role, router]);
 
   if (!allowed) {

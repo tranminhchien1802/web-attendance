@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import { Roboto } from "next/font/google";
 
 export const metadata: Metadata = {
-  title: "Cổng đào tạo | Công ty trách nhiệm hữu hạn Phan Gia Phước",
-  description: "Cổng thông tin đào tạo của Công ty trách nhiệm hữu hạn Phan Gia Phước",
+  title: "Cổng đào tạo | CÔNG TY TNHH PLT SOLUTIONS",
+  description: "Cổng thông tin đào tạo của CÔNG TY TNHH PLT SOLUTIONS",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

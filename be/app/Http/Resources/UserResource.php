@@ -20,11 +20,17 @@ class UserResource extends JsonResource
     {
         return [
             'id' => (string) $this->id,
+            'userCode' => $this->user_code,
             'fullName' => $this->name,
             'email' => $this->email,
-            'role' => $this->role,
-            'studentId' => $this->student_id,
+            'role' => $this->role === User::ROLE_LECTURER ? 'teacher' : $this->role,
+            'phone' => $this->phone,
+            'gender' => $this->gender,
+            'avatar' => $this->avatar,
+            'isActive' => (bool) $this->is_active,
             'department' => $this->department,
+            'faculty' => $this->faculty,
+            'major' => $this->major,
         ];
     }
 }

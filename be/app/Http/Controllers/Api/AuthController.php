@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -51,14 +52,7 @@ class AuthController extends Controller
             'message'      => 'Đăng nhập thành công.',
             'access_token' => $token,
             'token_type'   => 'Bearer',
-            'user'         => [
-                'id'        => $user->id,
-                'user_code' => $user->user_code,
-                'name'      => $user->name,
-                'email'     => $user->email,
-                'role'      => $user->role,
-                'avatar'    => $user->avatar,
-            ]
+            'user'         => (new UserResource($user))->resolve($request),
         ], 200);
     }
 
@@ -69,7 +63,7 @@ class AuthController extends Controller
     {
         return response()->json([
             'status' => 'success',
-            'user'   => $request->user()
+            'user'   => (new UserResource($request->user()))->resolve($request),
         ], 200);
     }
 

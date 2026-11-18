@@ -23,10 +23,10 @@ CREATE DATABASE attendance_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 ```bash
 php artisan migrate --seed
-php artisan serve --host=0.0.0.0 --port=3001
+php artisan serve --host=0.0.0.0 --port=8000
 ```
 
-API chạy ở `http://localhost:3001`.
+API chạy ở `http://127.0.0.1:8000/api`. Frontend có thể đổi host qua `NEXT_PUBLIC_API_URL`.
 
 ## Tài khoản mẫu
 
@@ -40,13 +40,16 @@ API chạy ở `http://localhost:3001`.
 
 | Method | Endpoint | Mô tả |
 | --- | --- | --- |
-| GET | `/api/health` | Kiểm tra trạng thái |
-| POST | `/api/auth/register` | Đăng ký sinh viên/giảng viên |
-| POST | `/api/auth/login` | Đăng nhập, trả về token Sanctum |
-| GET | `/api/auth/me` | Thông tin người dùng hiện tại |
-| POST | `/api/auth/logout` | Đăng xuất, thu hồi token |
+| POST | `/api/login` | Đăng nhập bằng email hoặc mã định danh, trả về Sanctum token |
+| GET | `/api/me` | Thông tin người dùng hiện tại |
+| POST | `/api/logout` | Đăng xuất, thu hồi token |
 | GET | `/api/users` | Danh sách người dùng (admin) |
-| PATCH | `/api/users/{id}/role` | Đổi vai trò (admin) |
+| POST | `/api/users` | Tạo tài khoản sinh viên/giảng viên (admin) |
+| PATCH | `/api/users/{id}` | Cập nhật hồ sơ tài khoản (admin) |
+| DELETE | `/api/users/{id}` | Xóa tài khoản sinh viên/giảng viên (admin) |
+| PATCH | `/api/users/{id}/role` | Đổi vai trò tài khoản (admin) |
+
+Tài khoản sinh viên/giảng viên cần `userCode`, `fullName`, `email`, `password` và `role` (`student` hoặc `teacher`). `phone`, `gender`, `avatar`, `isActive`, `department`, `faculty`, `major` là trường bổ sung; giới tính mặc định là `male`, tài khoản mặc định hoạt động. Mật khẩu tạo mới tối thiểu 8 ký tự. API trả `userCode` và vai trò `teacher`; DB lưu mã trong `user_code` và vai trò giảng viên là `lecturer`.
 
 Các endpoint cần xác thực dùng header:
 
