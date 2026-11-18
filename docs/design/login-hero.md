@@ -1,0 +1,7 @@
+# Login background — PLT SOLUTIONS
+
+Generated using the built-in imagegen tool. Asset: `fe/public/images/plt-login-learning-hub.png`.
+
+## Generation prompt
+
+Use case: photorealistic-natural. Asset type: premium login page background photograph for PLT SOLUTIONS, a Vietnamese technology and training company. Generate one polished architectural/editorial photo, portrait 4:5 composition, realistic modern corporate learning hub: double-height glass atrium, sculptural warm oak staircase, a sophisticated collaborative training lounge with laptops and a few naturally posed young Vietnamese adult professionals in the mid-to-far background on the right. Tall windows, soft morning sunlight, indoor trees, refined ivory stone, walnut and brushed metal, restrained indigo accents to match an indigo company logo. Aspirational but believable, architectural photography, natural textures, soft cinematic daylight, balanced white highlights, professional and inviting. Composition for website overlay: architectural detail and people concentrated on the right upper half, left middle and lower-left calm and uncluttered for HTML headline, no baked-in text. The actual photograph must remain clearly visible when used fullscreen in left 60 percent of a login page. Avoid monochrome blue look, blue gradients, neon, science-fiction holograms, classroom clichés, clipart, posed handshakes, distorted hands, logos, signage, letters, watermarks, UI or typography. Deliver image only, no mockup.
