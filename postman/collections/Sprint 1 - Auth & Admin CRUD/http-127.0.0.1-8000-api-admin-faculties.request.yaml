@@ -1,0 +1,23 @@
+$kind: http-request
+name: http://127.0.0.1:8000/api/admin/faculties
+description: ""
+url: http://127.0.0.1:8000/api/admin/faculties
+method: POST
+headers:
+  Accept: application/json
+body:
+  type: json
+  content: "{\r
+
+    \  \"faculty_code\": \"FIT\",\r
+
+    \  \"name\": \"Khoa Công nghệ Thông tin\",\r
+
+    \  \"description\": \"Tòa nhà Trung tâm - Lầu 5\"\r
+
+    }"
+auth:
+  type: bearer
+  credentials:
+    token: 11|PjwZkqADkDcLg9S42hXjni47HCQYLbAqW6ItQlis69b5ba8b
+order: 2000

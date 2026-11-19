@@ -44,7 +44,8 @@ class AuthController extends Controller
             ], 403);
         }
 
-        // 3. Đăng nhập thành công -> Sinh Sanctum Token (HTTP 200)
+        // 3. Nạp thêm thông tin Khoa (nếu có) & Sinh Sanctum Token (HTTP 200)
+        $user->load('faculty:id,faculty_code,name');
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
@@ -61,9 +62,11 @@ class AuthController extends Controller
      */
     public function me(Request $request)
     {
+        $user = $request->user()->load('faculty:id,faculty_code,name');
+
         return response()->json([
             'status' => 'success',
-            'user'   => (new UserResource($request->user()))->resolve($request),
+            'user'   => (new UserResource($user))->resolve($request),
         ], 200);
     }
 

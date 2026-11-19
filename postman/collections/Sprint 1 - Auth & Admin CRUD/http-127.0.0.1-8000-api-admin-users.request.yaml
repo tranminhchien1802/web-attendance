@@ -1,0 +1,33 @@
+$kind: http-request
+name: http://127.0.0.1:8000/api/admin/users
+description: ""
+url: http://127.0.0.1:8000/api/admin/users
+method: POST
+headers:
+  Accept: application/json
+body:
+  type: json
+  content: "{\r
+
+    \  \"user_code\": \"GV-003\",\r
+
+    \  \"name\": \"Trần Thị Bích Ngọc\",\r
+
+    \  \"email\": \"ngoc.ttb@plt.edu.vn\",\r
+
+    \  \"password\": \"password123\",\r
+
+    \  \"phone\": \"0901234567\",\r
+
+    \  \"gender\": \"female\",\r
+
+    \  \"role\": \"lecturer\",\r
+
+    \  \"faculty_id\": 1\r
+
+    }"
+auth:
+  type: bearer
+  credentials:
+    token: 11|PjwZkqADkDcLg9S42hXjni47HCQYLbAqW6ItQlis69b5ba8b
+order: 6000

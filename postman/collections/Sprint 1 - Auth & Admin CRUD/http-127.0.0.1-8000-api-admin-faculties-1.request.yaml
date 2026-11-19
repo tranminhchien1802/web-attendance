@@ -1,0 +1,14 @@
+$kind: http-request
+name: http://127.0.0.1:8000/api/admin/faculties
+description: ""
+url: http://127.0.0.1:8000/api/admin/faculties?search=FIT
+method: GET
+headers:
+  Accept: application/json
+queryParams:
+  search: FIT
+auth:
+  type: bearer
+  credentials:
+    token: 11|PjwZkqADkDcLg9S42hXjni47HCQYLbAqW6ItQlis69b5ba8b
+order: 3000

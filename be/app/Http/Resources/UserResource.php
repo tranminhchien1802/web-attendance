@@ -19,18 +19,20 @@ class UserResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => (string) $this->id,
-            'userCode' => $this->user_code,
-            'fullName' => $this->name,
-            'email' => $this->email,
-            'role' => $this->role === User::ROLE_LECTURER ? 'teacher' : $this->role,
-            'phone' => $this->phone,
-            'gender' => $this->gender,
-            'avatar' => $this->avatar,
-            'isActive' => (bool) $this->is_active,
-            'department' => $this->department,
-            'faculty' => $this->faculty,
-            'major' => $this->major,
+            'id'          => (string) $this->id,
+            'userCode'    => $this->user_code,
+            'fullName'    => $this->name,
+            'email'       => $this->email,
+            'role'        => $this->role === User::ROLE_LECTURER ? 'teacher' : $this->role,
+            'phone'       => $this->phone,
+            'gender'      => $this->gender,
+            'avatar'      => $this->avatar,
+            'isActive'    => (bool) $this->is_active,
+            'facultyId'   => $this->faculty_id,
+            'facultyCode' => $this->faculty?->faculty_code,
+            'faculty'     => $this->faculty?->name,
+            'department'  => null,
+            'major'       => null,
         ];
     }
 }

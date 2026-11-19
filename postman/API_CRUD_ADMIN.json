@@ -1,0 +1,352 @@
+{
+	"info": {
+		"_postman_id": "web-attendance-api-v1",
+		"name": "Web Attendance API (Auth + Admin)",
+		"description": "Bộ API Xác thực và Quản trị (Khoa & Người dùng) đồng bộ schema 11 bảng.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://127.0.0.1:8000/api",
+			"type": "string"
+		},
+		{
+			"key": "token",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{token}}",
+				"type": "string"
+			}
+		]
+	},
+	"item": [
+		{
+			"name": "01. Auth (Xác thực)",
+			"item": [
+				{
+					"name": "Login (Tự động lưu Token)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const res = pm.response.json();",
+									"if (res.access_token) {",
+									"    pm.collectionVariables.set('token', res.access_token);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"account\": \"admin@plt.edu.vn\",\n    \"password\": \"password123\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/login",
+							"host": ["{{base_url}}"],
+							"path": ["login"]
+						}
+					}
+				},
+				{
+					"name": "Me (Thông tin User hiện tại)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/me",
+							"host": ["{{base_url}}"],
+							"path": ["me"]
+						}
+					}
+				},
+				{
+					"name": "Logout (Đăng xuất)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/logout",
+							"host": ["{{base_url}}"],
+							"path": ["logout"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "02. Admin - Quản lý Khoa (Faculties)",
+			"item": [
+				{
+					"name": "Danh sách & Tìm kiếm Khoa",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/admin/faculties?search=&is_active=",
+							"host": ["{{base_url}}"],
+							"path": ["admin", "faculties"],
+							"query": [
+								{ "key": "search", "value": "" },
+								{ "key": "is_active", "value": "" }
+							]
+						}
+					}
+				},
+				{
+					"name": "Tạo Khoa mới",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"faculty_code\": \"FME\",\n    \"name\": \"Khoa Cơ khí Chế tạo máy\",\n    \"description\": \"Tòa nhà Trung tâm - Lầu 3\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/admin/faculties",
+							"host": ["{{base_url}}"],
+							"path": ["admin", "faculties"]
+						}
+					}
+				},
+				{
+					"name": "Chi tiết Khoa",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/admin/faculties/1",
+							"host": ["{{base_url}}"],
+							"path": ["admin", "faculties", "1"]
+						}
+					}
+				},
+				{
+					"name": "Cập nhật Khoa",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"faculty_code\": \"FIT\",\n    \"name\": \"Khoa Công nghệ Thông tin\",\n    \"description\": \"Khu A - Phòng A105\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/admin/faculties/1",
+							"host": ["{{base_url}}"],
+							"path": ["admin", "faculties", "1"]
+						}
+					}
+				},
+				{
+					"name": "Khóa / Mở khóa Khoa",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/admin/faculties/1/toggle-status",
+							"host": ["{{base_url}}"],
+							"path": ["admin", "faculties", "1", "toggle-status"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "03. Admin - Quản lý Người dùng (Users)",
+			"item": [
+				{
+					"name": "Danh sách & Lọc Người dùng",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/admin/users?role=&faculty_id=&search=",
+							"host": ["{{base_url}}"],
+							"path": ["admin", "users"],
+							"query": [
+								{ "key": "role", "value": "", "description": "admin | lecturer | student" },
+								{ "key": "faculty_id", "value": "" },
+								{ "key": "search", "value": "" }
+							]
+						}
+					}
+				},
+				{
+					"name": "Tạo Tài khoản (GV / SV / Admin)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"user_code\": \"21110001\",\n    \"name\": \"Nguyễn Văn An\",\n    \"email\": \"21110001@student.plt.edu.vn\",\n    \"password\": \"password123\",\n    \"phone\": \"0912345678\",\n    \"gender\": \"male\",\n    \"role\": \"student\",\n    \"faculty_id\": 1\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/admin/users",
+							"host": ["{{base_url}}"],
+							"path": ["admin", "users"]
+						}
+					}
+				},
+				{
+					"name": "Chi tiết Người dùng",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/admin/users/1",
+							"host": ["{{base_url}}"],
+							"path": ["admin", "users", "1"]
+						}
+					}
+				},
+				{
+					"name": "Cập nhật Người dùng",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"user_code\": \"GV-002\",\n    \"name\": \"Trần Thị Bích Ngọc\",\n    \"email\": \"ngoc.ttb@plt.edu.vn\",\n    \"phone\": \"0988888888\",\n    \"gender\": \"female\",\n    \"role\": \"lecturer\",\n    \"faculty_id\": 1\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/admin/users/2",
+							"host": ["{{base_url}}"],
+							"path": ["admin", "users", "2"]
+						}
+					}
+				},
+				{
+					"name": "Khóa / Mở khóa Tài khoản",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/admin/users/2/toggle-status",
+							"host": ["{{base_url}}"],
+							"path": ["admin", "users", "2", "toggle-status"]
+						}
+					}
+				}
+			]
+		}
+	]
+}

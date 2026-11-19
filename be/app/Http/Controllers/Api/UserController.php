@@ -6,158 +6,142 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
-    public function index(Request $request): AnonymousResourceCollection
+    // GET /api/admin/users?role=lecturer&faculty_id=1&search=
+    public function index(Request $request)
     {
-        $this->ensureAdmin($request);
+        $query = User::with('faculty:id,faculty_code,name');
 
-        return UserResource::collection(User::orderBy('id')->get());
-    }
-
-    public function store(Request $request): UserResource
-    {
-        $this->ensureAdmin($request);
-
-        $data = $request->validate([
-            'userCode' => ['required', 'string', 'max:20', Rule::unique('users', 'user_code')],
-            'fullName' => ['required', 'string', 'max:100'],
-            'email' => ['required', 'email', 'max:100', Rule::unique('users', 'email')],
-            'password' => ['required', 'string', 'min:8'],
-            'role' => ['required', Rule::in(['student', 'teacher'])],
-            'phone' => ['nullable', 'string', 'max:15'],
-            'gender' => ['sometimes', Rule::in(['male', 'female'])],
-            'avatar' => ['nullable', 'string', 'max:255'],
-            'isActive' => ['sometimes', 'boolean'],
-            'department' => ['nullable', 'string', 'max:100'],
-            'faculty' => ['nullable', 'string', 'max:100'],
-            'major' => ['nullable', 'string', 'max:100'],
-        ]);
-
-        $user = User::create($this->toUserAttributes($data) + [
-            'gender' => $data['gender'] ?? 'male',
-            'is_active' => $data['isActive'] ?? true,
-        ]);
-
-        return new UserResource($user);
-    }
-
-    public function update(Request $request, User $user): UserResource
-    {
-        $this->ensureAdmin($request);
-        $this->ensureManagedAccount($user, $request);
-
-        $data = $request->validate([
-            'userCode' => ['sometimes', 'required', 'string', 'max:20', Rule::unique('users', 'user_code')->ignore($user->id)],
-            'fullName' => ['sometimes', 'required', 'string', 'max:100'],
-            'email' => ['sometimes', 'required', 'email', 'max:100', Rule::unique('users', 'email')->ignore($user->id)],
-            'password' => ['sometimes', 'nullable', 'string', 'min:8'],
-            'role' => ['sometimes', 'required', Rule::in(['student', 'teacher'])],
-            'phone' => ['sometimes', 'nullable', 'string', 'max:15'],
-            'gender' => ['sometimes', Rule::in(['male', 'female'])],
-            'avatar' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'isActive' => ['sometimes', 'boolean'],
-            'department' => ['sometimes', 'nullable', 'string', 'max:100'],
-            'faculty' => ['sometimes', 'nullable', 'string', 'max:100'],
-            'major' => ['sometimes', 'nullable', 'string', 'max:100'],
-        ]);
-
-        if (! isset($data['password']) || $data['password'] === '') {
-            unset($data['password']);
+        if ($request->filled('role')) {
+            $query->where('role', $request->role);
         }
 
-        $user->fill($this->toUserAttributes($data));
+        if ($request->filled('faculty_id')) {
+            $query->where('faculty_id', $request->faculty_id);
+        }
+
+        if ($request->has('is_active') && $request->is_active !== '') {
+            $query->where('is_active', filter_var($request->is_active, FILTER_VALIDATE_BOOLEAN));
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('user_code', 'like', "%{$search}%")
+                  ->orWhere('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%");
+            });
+        }
+
+        return response()->json([
+            'data' => UserResource::collection($query->latest()->get())->resolve($request)
+        ]);
+    }
+
+    // POST /api/admin/users
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'user_code'  => 'required|string|max:20|unique:users,user_code',
+            'name'       => 'required|string|max:100',
+            'email'      => 'required|email|max:100|unique:users,email',
+            'password'   => 'required|string|min:6',
+            'phone'      => 'nullable|string|max:15',
+            'gender'     => 'required|in:male,female',
+            'role'       => 'required|in:admin,lecturer,student',
+            'faculty_id' => 'nullable|exists:faculties,id',
+            'is_active'  => 'boolean',
+        ], [
+            'user_code.unique' => 'Mã số (SV/GV/Admin) đã tồn tại.',
+            'email.unique'     => 'Email đã được sử dụng.',
+            'faculty_id.exists'=> 'Khoa được chọn không hợp lệ.',
+        ]);
+
+        if ($validated['role'] === 'admin') {
+            $validated['faculty_id'] = null;
+        }
+
+        $user = User::create($validated)->load('faculty:id,faculty_code,name');
+
+        return response()->json([
+            'message' => 'Tạo tài khoản thành công.',
+            'data'    => (new UserResource($user))->resolve($request)
+        ], 201);
+    }
+
+    // GET /api/admin/users/{id}
+    public function show(Request $request, $id)
+    {
+        $user = User::with('faculty:id,faculty_code,name')->findOrFail($id);
+
+        return response()->json([
+            'data' => (new UserResource($user))->resolve($request)
+        ]);
+    }
+
+    // PUT /api/admin/users/{id}
+    public function update(Request $request, $id)
+    {
+        $user = User::findOrFail($id);
+
+        $validated = $request->validate([
+            'user_code'  => 'required|string|max:20|unique:users,user_code,' . $user->id,
+            'name'       => 'required|string|max:100',
+            'email'      => 'required|email|max:100|unique:users,email,' . $user->id,
+            'password'   => 'nullable|string|min:6',
+            'phone'      => 'nullable|string|max:15',
+            'gender'     => 'required|in:male,female',
+            'role'       => 'required|in:admin,lecturer,student',
+            'faculty_id' => 'nullable|exists:faculties,id',
+            'is_active'  => 'boolean',
+        ], [
+            'user_code.unique' => 'Mã số (SV/GV/Admin) đã tồn tại.',
+            'email.unique'     => 'Email đã được sử dụng.',
+        ]);
+
+        if (empty($validated['password'])) {
+            unset($validated['password']);
+        }
+
+        if ($validated['role'] === 'admin') {
+            $validated['faculty_id'] = null;
+        }
+
+        $user->update($validated);
+        $user->load('faculty:id,faculty_code,name');
+
+        return response()->json([
+            'message' => 'Cập nhật thông tin thành công.',
+            'data'    => (new UserResource($user))->resolve($request)
+        ]);
+    }
+
+    // PATCH /api/admin/users/{id}/toggle-status
+    public function toggleStatus(Request $request, $id)
+    {
+        $user = User::findOrFail($id);
+
+        if ($request->user()->id === $user->id) {
+            return response()->json([
+                'message' => 'Không thể tự khóa tài khoản đang đăng nhập.'
+            ], 400);
+        }
+
+        $user->is_active = !$user->is_active;
         $user->save();
 
-        if (array_key_exists('isActive', $data) && ! $data['isActive']) {
+        // Thu hồi toàn bộ token đang đăng nhập nếu khóa tài khoản
+        if (!$user->is_active) {
             $user->tokens()->delete();
         }
 
-        return new UserResource($user->refresh());
-    }
+        $user->load('faculty:id,faculty_code,name');
 
-    public function destroy(Request $request, User $user)
-    {
-        $this->ensureAdmin($request);
-        $this->ensureManagedAccount($user, $request);
-
-        $user->tokens()->delete();
-        $user->delete();
-
-        return response()->noContent();
-    }
-
-    public function updateRole(Request $request, User $user): UserResource
-    {
-        $this->ensureAdmin($request);
-        $this->ensureManagedAccount($user, $request);
-
-        $data = $request->validate([
-            'role' => ['required', Rule::in(['student', 'teacher'])],
-        ], [
-            'role.required' => 'Vui lòng chọn vai trò.',
-            'role.in' => 'Vai trò không hợp lệ.',
+        return response()->json([
+            'message' => $user->is_active ? 'Đã mở khóa tài khoản.' : 'Đã khóa tài khoản.',
+            'data'    => (new UserResource($user))->resolve($request)
         ]);
-
-        $user->role = $this->databaseRole($data['role']);
-        $user->save();
-
-        return new UserResource($user->refresh());
-    }
-
-    private function toUserAttributes(array $data): array
-    {
-        $fields = [
-            'userCode' => 'user_code',
-            'fullName' => 'name',
-            'email' => 'email',
-            'password' => 'password',
-            'phone' => 'phone',
-            'gender' => 'gender',
-            'avatar' => 'avatar',
-            'isActive' => 'is_active',
-            'department' => 'department',
-            'faculty' => 'faculty',
-            'major' => 'major',
-        ];
-
-        $attributes = [];
-        foreach ($fields as $input => $column) {
-            if (array_key_exists($input, $data)) {
-                $attributes[$column] = $data[$input];
-            }
-        }
-
-        if (array_key_exists('role', $data)) {
-            $attributes['role'] = $this->databaseRole($data['role']);
-        }
-
-        return $attributes;
-    }
-
-    private function databaseRole(string $role): string
-    {
-        return $role === 'teacher' ? User::ROLE_LECTURER : $role;
-    }
-
-    private function ensureAdmin(Request $request): void
-    {
-        abort_unless(
-            $request->user()?->role === User::ROLE_ADMIN,
-            403,
-            'Chỉ admin được phép thực hiện thao tác này.',
-        );
-    }
-
-    private function ensureManagedAccount(User $user, Request $request): void
-    {
-        abort_if(
-            $user->role === User::ROLE_ADMIN || $user->is($request->user()),
-            403,
-            'Chỉ có thể quản lý tài khoản sinh viên hoặc giảng viên khác.',
-        );
     }
 }

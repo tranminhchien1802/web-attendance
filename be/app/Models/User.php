@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -23,11 +24,9 @@ class User extends Authenticatable
         'phone',
         'gender',
         'role',
+        'faculty_id',
         'avatar',
         'is_active',
-        'department',
-        'faculty',
-        'major',
     ];
 
     protected $hidden = [
@@ -39,4 +38,12 @@ class User extends Authenticatable
         'is_active' => 'boolean',
         'password' => 'hashed',
     ];
+
+    /**
+     * Khoa trực thuộc (NULL nếu là Admin hệ thống)
+     */
+    public function faculty(): BelongsTo
+    {
+        return $this->belongsTo(Faculty::class, 'faculty_id');
+    }
 }
