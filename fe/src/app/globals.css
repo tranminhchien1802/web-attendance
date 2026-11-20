@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 :root {
+  --font-ui: "Segoe UI", -apple-system, BlinkMacSystemFont, Arial, Helvetica, sans-serif;
   --bg-app: #ebebeb;
   --primary-blue: #0f4d8b;
   --primary-blue-strong: #0a3d74;
@@ -20,7 +21,7 @@ body {
   min-height: 100vh;
   background: var(--bg-app);
   color: var(--text-dark);
-  font-family: var(--font-roboto), Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }

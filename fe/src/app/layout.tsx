@@ -1,6 +1,7 @@
 import "./globals.css";
+import "./portal.css";
 import type { Metadata } from "next";
-import { Roboto } from "next/font/google";
+import { PortalProviders } from "@/components/PortalProviders";
 
 export const metadata: Metadata = {
   title: "Cổng đào tạo | CÔNG TY TNHH PLT SOLUTIONS",
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="vi">
-      <body className="font-sans antialiased">{children}</body>
+      <body className="font-sans antialiased"><PortalProviders>{children}</PortalProviders></body>
     </html>
   );
 }

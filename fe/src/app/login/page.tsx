@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, GraduationCap, Presentation } from "lucide-react";
 import { AuthField } from "@/components/auth/AuthField";
 import { AuthShell } from "@/components/auth/AuthShell";
-import { GoogleIcon } from "@/components/auth/GoogleIcon";
+
 import { loginWithCredentials } from "@/lib/auth";
 
 const demoAccounts = {
@@ -14,9 +14,6 @@ const demoAccounts = {
   teacher: { email: "teacher@hcmute.edu.vn", password: "123456", label: "giảng viên" },
   admin: { email: "admin@hcmute.edu.vn", password: "123456", label: "quản trị viên" },
 };
-
-const googleButtonClass =
-  "flex min-h-12 w-full items-center justify-center gap-2.5 rounded-[4px] border border-[#c5cdd6] bg-white px-4 py-2.5 text-center text-[13px] font-medium leading-5 text-[#3c4043] transition hover:border-[#9fb0c3] hover:bg-[#f7f9fc] focus:outline-none focus:ring-2 focus:ring-[#00558d]/20";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -36,11 +33,11 @@ export default function LoginPage() {
   try {
     const user = await loginWithCredentials(email, password);
     router.replace(user.role === "student" ? "/student/Index" : user.role === "teacher" ? "/teacher/Index" : "/dashboard");
-  } catch (err: any) {
+  } catch (error: unknown) {
     // Hiển thị đúng câu thông báo lỗi 401, 403, 422 từ AuthController.php
-    const serverMessage = err.response?.data?.message;
+    const serverMessage = (error as { response?: { data?: { message?: string } } }).response?.data?.message;
     setError(
-      serverMessage || "Không thể kết nối đến máy chủ Backend. Kiểm tra cấu hình NEXT_PUBLIC_API_URL."
+      serverMessage || "Chưa thể kết nối máy chủ. Vui lòng kiểm tra mạng và thử lại."
     );
   } finally {
     setLoading(false);
@@ -62,9 +59,9 @@ export default function LoginPage() {
 
   return (
     <AuthShell>
-      <div className="rounded-[8px] border border-[#dfe5ec] bg-white p-5 shadow-[0_20px_60px_rgba(8,30,60,0.12)] sm:p-7">
+      <div className="plt-auth-form rounded-[8px] border border-[#dfe5ec] bg-white p-5 shadow-[0_20px_60px_rgba(8,30,60,0.12)] sm:p-7">
         <div className="text-center">
-          <h2 className="text-[22px] font-medium uppercase tracking-[0.08em] text-[#0d2461]">Đăng nhập</h2>
+          <h2 className="plt-auth-title text-[22px] font-medium uppercase tracking-[0.08em] text-[#0d2461]">Đăng nhập</h2>
           <p className="mt-1 text-[13px] text-[#6b7280]">Cổng thông tin đào tạo</p>
         </div>
 
@@ -115,20 +112,13 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="h-12 w-full rounded-[4px] bg-[#00558d] text-[14px] font-semibold uppercase tracking-[0.08em] text-white shadow-sm transition hover:bg-[#004876] focus:outline-none focus:ring-2 focus:ring-[#00558d]/30 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+            className="plt-login-submit h-12 w-full rounded-[4px] bg-[#00558d] text-[14px] font-semibold uppercase tracking-[0.08em] text-white shadow-sm transition hover:bg-[#004876] focus:outline-none focus:ring-2 focus:ring-[#00558d]/30 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? "Đang đăng nhập..." : "Đăng nhập"}
           </button>
 
-          <button type="button" onClick={() => fillDemo("student")} className={googleButtonClass}>
-            <GoogleIcon />
-            Đăng nhập với Google Sinh viên
-          </button>
-
-          <button type="button" onClick={() => fillDemo("teacher")} className={googleButtonClass}>
-            <GoogleIcon />
-            Đăng nhập với Google Giảng viên
-          </button>
+          <p className="pt-2 text-center text-[10px] text-slate-400">Khám phá không gian theo vai trò</p>
+          <div className="plt-demo-choices"><button type="button" onClick={() => fillDemo("student")} disabled={loading}><GraduationCap size={16} />Demo sinh viên</button><button type="button" onClick={() => fillDemo("teacher")} disabled={loading}><Presentation size={16} />Demo giảng viên</button></div>
         </form>
 
         <div className="my-5 h-px w-full bg-[#e4e9f0]" />

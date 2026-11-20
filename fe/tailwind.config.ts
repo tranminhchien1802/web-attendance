@@ -5,8 +5,8 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-roboto)", "Roboto", "Helvetica", "Arial", "sans-serif"],
-        heading: ["var(--font-roboto)", "Roboto", "Helvetica", "Arial", "sans-serif"],
+        sans: ["var(--font-ui)"],
+        heading: ["var(--font-ui)"],
       },
       boxShadow: {
         portal: "0 24px 60px rgba(12,44,98,0.18)",

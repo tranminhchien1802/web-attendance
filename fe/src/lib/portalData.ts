@@ -1,7 +1,7 @@
 export type AttendanceStatus = "present" | "absent" | "excused";
-export type TeachingLog = { id: string; classId: string; date: string; topic: string; content: string; homework: string; createdAt: string };
-export type QrAttendanceSession = { token: string; classId: string; date: string; expiresAt: number };
-export type AttendanceDay = { date: string; records: Record<string, AttendanceStatus> };
+export type TeachingLog = { id: string; classId: string; date: string; topic: string; content: string; homework: string; periods?: number; notes?: string; createdAt: string };
+export type QrAttendanceSession = { token: string; classId: string; date: string; expiresAt: number; createdAt?: number; closed?: boolean };
+export type AttendanceDay = { date: string; records: Record<string, AttendanceStatus>; periods: number };
 
 export type PortalClass = {
   id: string;
@@ -31,7 +31,7 @@ export const portalClasses: PortalClass[] = [
     "endTime": "09:30",
     "type": "Lý thuyết",
     "teacherIds": [
-      "tea-001"
+      "GV-001"
     ],
     "studentIds": [
       "20124001",
@@ -52,7 +52,7 @@ export const portalClasses: PortalClass[] = [
     "endTime": "11:30",
     "type": "Thực hành",
     "teacherIds": [
-      "tea-001"
+      "GV-001"
     ],
     "studentIds": [
       "20124001",
@@ -73,7 +73,7 @@ export const portalClasses: PortalClass[] = [
     "endTime": "15:00",
     "type": "Seminar",
     "teacherIds": [
-      "tea-001"
+      "GV-001"
     ],
     "studentIds": [
       "20124001",
@@ -94,7 +94,7 @@ export const portalClasses: PortalClass[] = [
     "endTime": "09:00",
     "type": "Thực hành",
     "teacherIds": [
-      "tea-002"
+      "GV-002"
     ],
     "studentIds": [
       "20124002",
@@ -115,7 +115,7 @@ export const portalClasses: PortalClass[] = [
     "endTime": "15:00",
     "type": "Lý thuyết",
     "teacherIds": [
-      "tea-002"
+      "GV-002"
     ],
     "studentIds": [
       "20124001",
@@ -136,7 +136,7 @@ export const portalClasses: PortalClass[] = [
     "endTime": "11:15",
     "type": "Lý thuyết",
     "teacherIds": [
-      "tea-003"
+      "GV-003"
     ],
     "studentIds": [
       "20124007",
@@ -157,7 +157,7 @@ export const portalClasses: PortalClass[] = [
     "endTime": "15:00",
     "type": "Thực hành",
     "teacherIds": [
-      "tea-003"
+      "GV-003"
     ],
     "studentIds": [
       "20124005",
@@ -179,7 +179,7 @@ export const portalClasses: PortalClass[] = [
     "endTime": "11:15",
     "type": "Lý thuyết",
     "teacherIds": [
-      "tea-001"
+      "GV-001"
     ],
     "studentIds": [
       "20124003",
@@ -200,7 +200,7 @@ export const portalClasses: PortalClass[] = [
     "endTime": "09:00",
     "type": "Thực hành",
     "teacherIds": [
-      "tea-004"
+      "GV-004"
     ],
     "studentIds": [
       "20124013",
@@ -221,7 +221,7 @@ export const portalClasses: PortalClass[] = [
     "endTime": "11:15",
     "type": "Lý thuyết",
     "teacherIds": [
-      "tea-004"
+      "GV-004"
     ],
     "studentIds": [
       "20124015",
@@ -242,7 +242,7 @@ export const portalClasses: PortalClass[] = [
     "endTime": "15:00",
     "type": "Thực hành",
     "teacherIds": [
-      "tea-004"
+      "GV-004"
     ],
     "studentIds": [
       "20124013",
@@ -263,7 +263,7 @@ export const portalClasses: PortalClass[] = [
     "endTime": "15:00",
     "type": "Thực hành",
     "teacherIds": [
-      "tea-005"
+      "GV-005"
     ],
     "studentIds": [
       "20124019",
@@ -284,7 +284,7 @@ export const portalClasses: PortalClass[] = [
     "endTime": "09:00",
     "type": "Lý thuyết",
     "teacherIds": [
-      "tea-005"
+      "GV-005"
     ],
     "studentIds": [
       "20124020",
@@ -306,7 +306,7 @@ export const portalClasses: PortalClass[] = [
     "endTime": "09:00",
     "type": "Lý thuyết",
     "teacherIds": [
-      "tea-006"
+      "GV-006"
     ],
     "studentIds": [
       "20124025",
@@ -327,7 +327,7 @@ export const portalClasses: PortalClass[] = [
     "endTime": "11:15",
     "type": "Seminar",
     "teacherIds": [
-      "tea-006"
+      "GV-006"
     ],
     "studentIds": [
       "20124026",
@@ -348,7 +348,7 @@ export const portalClasses: PortalClass[] = [
     "endTime": "15:00",
     "type": "Thực hành",
     "teacherIds": [
-      "tea-006"
+      "GV-006"
     ],
     "studentIds": [
       "20124025",
@@ -604,103 +604,107 @@ const roster: RosterStudent[] = [
   }
 ];
 
+
 const ATTENDANCE_KEY = "phg_attendance_records_v1";
 const TEACHING_LOG_KEY = "phg_teaching_logs_v1";
 const QR_SESSION_KEY = "phg_qr_attendance_sessions_v1";
 const GRADES_KEY = "phg_course_grades_v1";
-type GradeRecord = { process?: number; exam?: number };
+const META_KEY = "plt_attendance_meta_v1";
+const SETTINGS_KEY = "plt_attendance_settings_v1";
+export type GradeRecord = { process?: number; exam?: number };
+export type AttendanceSettings = { totalPeriods: number; threshold: number; includeExcused: boolean };
 type AttendanceStore = Record<string, Record<string, AttendanceStatus>>;
 
-export function getClassesForTeacher(teacherId: string) {
-  return portalClasses.filter((course) => course.teacherIds.includes(teacherId));
+function read<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  try { const value = window.localStorage.getItem(key); return value ? JSON.parse(value) as T : fallback; } catch { return fallback; }
 }
-
-export function getClassesForStudent(studentId?: string) {
-  return studentId ? portalClasses.filter((course) => course.studentIds.includes(studentId)) : [];
+function write(key: string, value: unknown) {
+  window.localStorage.setItem(key, JSON.stringify(value));
+  window.dispatchEvent(new Event("plt:data"));
 }
-
-export function getPortalClass(classId: string) {
-  return portalClasses.find((course) => course.id.toLowerCase() === classId.toLowerCase());
+export function getClassesForTeacher(teacherId: string, userCode?: string) {
+  return portalClasses.filter(course => course.teacherIds.includes(teacherId) || Boolean(userCode && course.teacherIds.includes(userCode)));
 }
-
+export function getClassesForStudent(studentId?: string) { return studentId ? portalClasses.filter(course => course.studentIds.includes(studentId)) : []; }
+export function getPortalClass(classId: string) { return portalClasses.find(course => course.id.toLowerCase() === classId.toLowerCase()); }
 export function getClassRoster(classId: string) {
   const course = getPortalClass(classId);
-  if (!course) return [];
-  return course.studentIds.map((id) => roster.find((student) => student.id === id)).filter((student): student is RosterStudent => Boolean(student));
+  return course ? course.studentIds.map(id => roster.find(student => student.id === id)).filter((student): student is RosterStudent => Boolean(student)) : [];
 }
-
-function readAttendanceStore(): AttendanceStore {
-  if (typeof window === "undefined") return {};
-  try {
-    const value = window.localStorage.getItem(ATTENDANCE_KEY);
-    return value ? JSON.parse(value) as AttendanceStore : {};
-  } catch {
-    return {};
-  }
-}
-
 export function getClassAttendance(classId: string, date: string) {
-  return readAttendanceStore()[`${classId}|${date}`] ?? {};
+  return read<AttendanceStore>(ATTENDANCE_KEY, {})[(getPortalClass(classId)?.id ?? classId) + "|" + date] ?? {};
 }
-
-export function saveClassAttendance(classId: string, date: string, records: Record<string, AttendanceStatus>) {
-  const store = readAttendanceStore();
-  store[`${classId}|${date}`] = records;
-  window.localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(store));
+export function saveClassAttendance(classId: string, date: string, records: Record<string, AttendanceStatus>, periods?: number) {
+  const id = getPortalClass(classId)?.id ?? classId;
+  const store = read<AttendanceStore>(ATTENDANCE_KEY, {});
+  store[id + "|" + date] = records;
+  if (periods) { const meta = read<Record<string, number>>(META_KEY, {}); meta[id + "|" + date] = periods; write(META_KEY, meta); }
+  write(ATTENDANCE_KEY, store);
 }
-
 export function getAttendanceDays(classId: string): AttendanceDay[] {
-  return Object.entries(readAttendanceStore()).filter(([key]) => key.startsWith(classId + "|"))
-    .map(([key, records]) => ({ date: key.slice(classId.length + 1), records })).sort((a, b) => a.date.localeCompare(b.date));
-}
-function readTeachingLogs(): TeachingLog[] {
-  if (typeof window === "undefined") return [];
-  try { return JSON.parse(window.localStorage.getItem(TEACHING_LOG_KEY) || "[]") as TeachingLog[]; } catch { return []; }
+  const meta = read<Record<string, number>>(META_KEY, {});
+  return Object.entries(read<AttendanceStore>(ATTENDANCE_KEY, {})).filter(([key]) => key.startsWith(classId + "|")).map(([key, records]) => ({ date: key.slice(classId.length + 1), records, periods: meta[key] ?? 1 })).sort((a, b) => a.date.localeCompare(b.date));
 }
 export function getTeachingLogs(classId?: string) {
-  return readTeachingLogs().filter((item) => !classId || item.classId === classId)
-    .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
+  return read<TeachingLog[]>(TEACHING_LOG_KEY, []).filter(item => !classId || item.classId === classId).sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
 }
-export function saveTeachingLog(entry: Omit<TeachingLog, "id" | "createdAt">) {
-  const saved: TeachingLog = { ...entry, id: "log-" + Date.now(), createdAt: new Date().toISOString() };
-  window.localStorage.setItem(TEACHING_LOG_KEY, JSON.stringify([saved, ...readTeachingLogs()])); return saved;
+export function saveTeachingLog(entry: Omit<TeachingLog, "id" | "createdAt">, editingId?: string) {
+  const logs = read<TeachingLog[]>(TEACHING_LOG_KEY, []);
+  const previous = logs.find(log => log.id === editingId);
+  const saved: TeachingLog = { ...entry, id: previous?.id ?? "log-" + (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Date.now()), createdAt: previous?.createdAt ?? new Date().toISOString() };
+  write(TEACHING_LOG_KEY, previous ? logs.map(log => log.id === previous.id ? saved : log) : [saved, ...logs]);
+  return saved;
 }
-function readQrSessions(): Record<string, QrAttendanceSession> {
-  if (typeof window === "undefined") return {};
-  try { return JSON.parse(window.localStorage.getItem(QR_SESSION_KEY) || "{}") as Record<string, QrAttendanceSession>; } catch { return {}; }
-}
-export function createQrAttendanceSession(classId: string, date: string) {
+export function deleteTeachingLog(id: string) { write(TEACHING_LOG_KEY, read<TeachingLog[]>(TEACHING_LOG_KEY, []).filter(log => log.id !== id)); }
+function readQrSessions() { return read<Record<string, QrAttendanceSession>>(QR_SESSION_KEY, {}); }
+export function getActiveQrSession(classId: string, date: string) { return Object.values(readQrSessions()).filter(session => session.classId === classId && session.date === date && !session.closed && session.expiresAt > Date.now()).sort((a, b) => b.expiresAt - a.expiresAt)[0] ?? null; }
+export function getLatestQrSession(classId: string, date: string) { return Object.values(readQrSessions()).filter(session => session.classId === classId && session.date === date).sort((a, b) => (b.createdAt ?? b.expiresAt) - (a.createdAt ?? a.expiresAt))[0] ?? null; }
+export function closeQrSession(token: string) { const sessions = readQrSessions(); if (sessions[token]) { sessions[token].closed = true; write(QR_SESSION_KEY, sessions); } }
+export function createQrAttendanceSession(classId: string, date: string, duration = 10) {
+  if (!date || !getPortalClass(classId)) throw new Error("Chọn lớp và ngày điểm danh hợp lệ.");
   const bytes = new Uint8Array(8);
-  if (typeof crypto !== "undefined" && crypto.getRandomValues) crypto.getRandomValues(bytes);
-  else bytes.forEach((_, i) => { bytes[i] = Math.floor(Math.random() * 256); });
-  const token = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("").toUpperCase();
-  const session = { token, classId, date, expiresAt: Date.now() + 10 * 60 * 1000 };
-  const sessions = readQrSessions(); sessions[token] = session;
-  window.localStorage.setItem(QR_SESSION_KEY, JSON.stringify(sessions)); return session;
+  crypto.getRandomValues(bytes);
+  const token = Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("").toUpperCase();
+  const now = Date.now();
+  const session: QrAttendanceSession = { token, classId, date, createdAt: now, expiresAt: now + Math.max(1, Math.min(30, duration)) * 60000 };
+  const sessions = readQrSessions();
+  Object.keys(sessions).forEach(key => { if (sessions[key].expiresAt <= now) delete sessions[key]; else if (sessions[key].classId === classId) sessions[key].closed = true; });
+  sessions[token] = session;
+  write(QR_SESSION_KEY, sessions);
+  return session;
 }
 export function markPresentWithQr(token: string, studentId: string) {
   const session = readQrSessions()[token.trim().toUpperCase()];
-  if (!session || session.expiresAt < Date.now()) return { ok: false as const, message: "Mã QR không hợp lệ hoặc đã hết hạn." };
+  if (!session || session.closed || session.expiresAt <= Date.now()) return { ok: false as const, message: "Mã QR không hợp lệ, đã đóng hoặc hết hạn." };
   const course = getPortalClass(session.classId);
-  if (!course || !course.studentIds.includes(studentId)) return { ok: false as const, message: "Sinh viên không thuộc lớp của mã QR này." };
+  if (!course || !course.studentIds.includes(studentId)) return { ok: false as const, message: "Bạn không thuộc lớp của mã QR này." };
   const records = getClassAttendance(course.id, session.date);
-  if (records[studentId] === "present") return { ok: true as const, message: "Bạn đã được điểm danh lớp " + course.code + ".", className: course.name };
+  if (records[studentId] === "present") return { ok: true as const, duplicate: true, date: session.date, message: "Bạn đã điểm danh lớp " + course.code + ". Không cần gửi lại.", className: course.name };
   saveClassAttendance(course.id, session.date, { ...records, [studentId]: "present" });
-  return { ok: true as const, message: "Điểm danh thành công lớp " + course.code + ".", className: course.name };
+  return { ok: true as const, duplicate: false, date: session.date, message: "Điểm danh thành công lớp " + course.code + ".", className: course.name };
 }
-function readGrades(): Record<string, Record<string, GradeRecord>> {
-  if (typeof window === "undefined") return {};
-  try { return JSON.parse(window.localStorage.getItem(GRADES_KEY) || "{}") as Record<string, Record<string, GradeRecord>>; } catch { return {}; }
-}
-export function getClassGrades(classId: string) { return readGrades()[classId] ?? {}; }
+export function getClassGrades(classId: string) { return read<Record<string, Record<string, GradeRecord>>>(GRADES_KEY, {})[classId] ?? {}; }
 export function saveClassGrade(classId: string, studentId: string, kind: "process" | "exam", value: number | undefined) {
-  const grades = readGrades(); const classGrades = grades[classId] ?? {};
-  classGrades[studentId] = { ...classGrades[studentId], [kind]: value }; grades[classId] = classGrades;
-  window.localStorage.setItem(GRADES_KEY, JSON.stringify(grades));
+  const grades = read<Record<string, Record<string, GradeRecord>>>(GRADES_KEY, {}), classGrades = grades[classId] ?? {};
+  classGrades[studentId] = { ...classGrades[studentId], [kind]: value }; grades[classId] = classGrades; write(GRADES_KEY, grades);
 }
-export function getLocalDateKey(date = new Date()) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+export function getAttendanceSettings(classId: string): AttendanceSettings { return read<Record<string, AttendanceSettings>>(SETTINGS_KEY, {})[classId] ?? { totalPeriods: 45, threshold: 20, includeExcused: false }; }
+export function saveAttendanceSettings(classId: string, settings: AttendanceSettings) {
+  const all = read<Record<string, AttendanceSettings>>(SETTINGS_KEY, {});
+  all[classId] = settings; write(SETTINGS_KEY, all);
 }
+export function getAbsenceSummary(classId: string, from = "", to = "") {
+  const days = getAttendanceDays(classId).filter(day => (!from || day.date >= from) && (!to || day.date <= to));
+  const settings = getAttendanceSettings(classId);
+  return getClassRoster(classId).map(student => {
+    const total = days.reduce((n, day) => n + day.periods, 0);
+    const present = days.reduce((n, day) => n + (day.records[student.id] === "present" ? day.periods : 0), 0);
+    const absent = days.reduce((n, day) => n + (day.records[student.id] === "absent" ? day.periods : 0), 0);
+    const excused = days.reduce((n, day) => n + (day.records[student.id] === "excused" ? day.periods : 0), 0);
+    const counted = absent + (settings.includeExcused ? excused : 0);
+    const percentage = settings.totalPeriods > 0 ? Math.round(counted * 1000 / settings.totalPeriods) / 10 : 0;
+    return { ...student, present, absent, excused, total, counted, percentage, warning: percentage >= settings.threshold, rate: total ? Math.round(present * 100 / total) : 0 };
+  });
+}
+export function getLocalDateKey(date = new Date()) { const year = date.getFullYear(), month = String(date.getMonth() + 1).padStart(2, "0"), day = String(date.getDate()).padStart(2, "0"); return year + "-" + month + "-" + day; }

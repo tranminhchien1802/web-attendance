@@ -10,7 +10,7 @@ const companyName = "CÔNG TY TNHH PLT SOLUTIONS";
 
 export function AuthShell({ children, wide = false }: AuthShellProps) {
   return (
-    <main className="min-h-screen bg-[#eef2f7] text-[#1f2a37]">
+    <main className="plt-auth min-h-screen bg-[#f7f7fa] text-[#1f2a37]">
       <div className="grid min-h-screen lg:grid-cols-[minmax(0,1fr)_560px]">
         <section className="auth-brand-panel relative hidden overflow-hidden bg-[#343e41] lg:block">
           <Image src="/images/plt-login-learning-hub.png" alt="" fill priority sizes="(min-width: 1024px) calc(100vw - 560px), 100vw" className="object-cover object-[60%_center]" />
@@ -53,7 +53,7 @@ export function AuthShell({ children, wide = false }: AuthShellProps) {
           </div>
         </section>
 
-        <section className="relative flex min-h-screen flex-col bg-[#f3f6fa]">
+        <section className="relative flex min-h-screen flex-col bg-[#f8f8fb]">
           <div className="relative isolate flex min-h-[190px] w-full flex-col items-center justify-center overflow-hidden bg-[#343e41] px-5 py-5 text-center lg:hidden">
             <Image src="/images/plt-login-learning-hub.png" alt="" fill priority sizes="100vw" className="-z-20 object-cover object-[center_38%]" />
             <div aria-hidden="true" className="absolute inset-0 -z-10 bg-slate-950/55" />

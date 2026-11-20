@@ -96,10 +96,12 @@ export function setCurrentUser(user: AppUser | null) {
   if (!user) {
     window.localStorage.removeItem(CURRENT_USER_KEY);
     window.localStorage.removeItem(ACCESS_TOKEN_KEY);
+    window.dispatchEvent(new Event("plt:session"));
     return;
   }
 
   window.localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+  window.dispatchEvent(new Event("plt:session"));
 }
 
 export async function loginWithCredentials(
@@ -128,9 +130,12 @@ export async function fetchMe(): Promise<AppUser | null> {
     const appUser = mapBackendUserToAppUser(response.data.user);
     setCurrentUser(appUser);
     return appUser;
-  } catch {
-    setCurrentUser(null);
-    return null;
+  } catch (error) {
+    if ((error as { response?: { status?: number } }).response?.status === 401) {
+      setCurrentUser(null);
+      return null;
+    }
+    throw error;
   }
 }
 

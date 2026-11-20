@@ -71,30 +71,29 @@ function inlineCell(reference: string, value: string) {
   return `<c r="${reference}" t="inlineStr"><is><t xml:space="preserve">${xmlEscape(value)}</t></is></c>`;
 }
 
-export function exportAttendanceXlsx(className: string, classCode: string, date: string, students: AttendanceExportRow[]) {
-  const statusLabels: Record<AttendanceStatus, string> = { present: "Có mặt", absent: "Vắng", excused: "Có phép" };
-  const headings = ["STT", "Mã sinh viên", "Họ và tên", "Email", "Trạng thái"];
+
+export function exportRowsXlsx(filename: string, title: string, headings: string[], data: (string | number)[][], description = "") {
+  const column = (index: number) => String.fromCharCode(65 + index);
   const rows = [
-    `<row r="1">${headings.map((label, index) => inlineCell(`${String.fromCharCode(65 + index)}1`, label)).join("")}</row>`,
-    `<row r="2">${inlineCell("A2", "Lớp")}${inlineCell("B2", className)}${inlineCell("C2", "Mã lớp")}${inlineCell("D2", classCode)}${inlineCell("E2", "Ngày")}${inlineCell("F2", date)}</row>`,
-    ...students.map((student, index) => {
-      const rowNumber = index + 4;
-      return `<row r="${rowNumber}"><c r="A${rowNumber}"><v>${index + 1}</v></c>${inlineCell(`B${rowNumber}`, student.studentId)}${inlineCell(`C${rowNumber}`, student.fullName)}${inlineCell(`D${rowNumber}`, student.email)}${inlineCell(`E${rowNumber}`, student.status ? statusLabels[student.status] : "Chưa điểm danh")}</row>`;
-    }),
+    '<row r="1">' + inlineCell("A1", title) + '</row>',
+    '<row r="2">' + inlineCell("A2", description) + '</row>',
+    '<row r="4">' + headings.map((label, index) => inlineCell(column(index) + "4", label).replace('<c r=', '<c s="1" r=')).join("") + '</row>',
+    ...data.map((values, index) => { const n = index + 5; return '<row r="' + n + '">' + values.map((value, i) => typeof value === "number" && Number.isFinite(value) ? '<c r="' + column(i) + n + '"><v>' + value + '</v></c>' : inlineCell(column(i) + n, String(value))).join("") + '</row>'; }),
   ];
-  const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:F${students.length + 3}"/><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="19"/><cols><col min="1" max="1" width="8" customWidth="1"/><col min="2" max="2" width="18" customWidth="1"/><col min="3" max="3" width="28" customWidth="1"/><col min="4" max="4" width="34" customWidth="1"/><col min="5" max="6" width="20" customWidth="1"/></cols><sheetData>${rows.join("")}</sheetData><autoFilter ref="A1:E${students.length + 3}"/></worksheet>`;
+  const end = headings.length ? column(headings.length - 1) : "A", last = Math.max(4, data.length + 4);
+  const sheet = '<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:' + end + last + '"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="22"/><cols>' + headings.map((_, i) => '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + (i === 0 ? 9 : 28) + '" customWidth="1"/>').join("") + '</cols><sheetData>' + rows.join("") + '</sheetData><autoFilter ref="A4:' + end + last + '"/></worksheet>';
   const files = [
-    { name: "[Content_Types].xml", text: `<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>` },
-    { name: "_rels/.rels", text: `<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>` },
-    { name: "xl/workbook.xml", text: `<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Điểm danh" sheetId="1" r:id="rId1"/></sheets></workbook>` },
-    { name: "xl/_rels/workbook.xml.rels", text: `<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>` },
+    { name: "[Content_Types].xml", text: '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>' },
+    { name: "_rels/.rels", text: '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>' },
+    { name: "xl/workbook.xml", text: '<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Bao cao" sheetId="1" r:id="rId1"/></sheets></workbook>' },
+    { name: "xl/_rels/workbook.xml.rels", text: '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>' },
+    { name: "xl/styles.xml", text: '<?xml version="1.0" encoding="UTF-8"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FF49439C"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>' },
     { name: "xl/worksheets/sheet1.xml", text: sheet },
   ];
-  const blob = makeZip(files);
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `Diem-danh-${classCode}-${date}.xlsx`;
-  anchor.click();
-  URL.revokeObjectURL(url);
+  const url = URL.createObjectURL(makeZip(files)), anchor = document.createElement("a");
+  anchor.href = url; anchor.download = filename; document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+export function exportAttendanceXlsx(className: string, classCode: string, date: string, students: AttendanceExportRow[]) {
+  const labels: Record<AttendanceStatus, string> = { present: "Có mặt", absent: "Vắng", excused: "Có phép" };
+  exportRowsXlsx("Diem-danh-" + classCode + "-" + date + ".xlsx", "ĐIỂM DANH · " + className, ["STT", "Mã sinh viên", "Họ và tên", "Email", "Trạng thái"], students.map((student, index) => [index + 1, student.studentId, student.fullName, student.email, student.status ? labels[student.status] : "Chưa điểm danh"]), "PLT SOLUTIONS | Lớp " + classCode + " | Ngày " + date);
 }
