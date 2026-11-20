@@ -83,4 +83,40 @@ class AuthController extends Controller
             'message' => 'Đăng xuất thành công.'
         ], 200);
     }
+    
+    /**
+     * Đổi mật khẩu cá nhân (FR-01)
+     */
+    public function changePassword(Request $request)
+    {
+        $request->validate([
+            'current_password' => 'required|string',
+            'new_password'     => 'required|string|min:8|confirmed|different:current_password',
+        ], [
+            'current_password.required' => 'Vui lòng nhập mật khẩu hiện tại.',
+            'new_password.required'     => 'Vui lòng nhập mật khẩu mới.',
+            'new_password.min'          => 'Mật khẩu mới phải có ít nhất 8 ký tự.',
+            'new_password.confirmed'    => 'Xác nhận mật khẩu mới không khớp.',
+            'new_password.different'    => 'Mật khẩu mới phải khác mật khẩu hiện tại.',
+        ]);
+
+        $user = $request->user();
+
+        if (!Hash::check($request->current_password, $user->password)) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Mật khẩu hiện tại không chính xác.'
+            ], 422);
+        }
+
+        // Model User đã khai báo cast 'password' => 'hashed' nên Laravel tự mã hóa Bcrypt
+        $user->update([
+            'password' => $request->new_password,
+        ]);
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Đổi mật khẩu thành công.'
+        ], 200);
+    }
 }

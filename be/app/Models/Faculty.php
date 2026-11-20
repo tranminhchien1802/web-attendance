@@ -21,4 +21,8 @@ class Faculty extends Model
     {
         return $this->hasMany(User::class, 'faculty_id');
     }
+    public function subjects()
+    {
+        return $this->hasMany(Subject::class, 'faculty_id');
+    }
 }
